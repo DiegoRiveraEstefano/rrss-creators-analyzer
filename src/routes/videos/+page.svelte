@@ -8,6 +8,7 @@
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import AddVideoModal from '$lib/components/creators/AddVideoModal.svelte';
+	import EditVideoModal from '$lib/components/creators/EditVideoModal.svelte';
 	import {
 		Video,
 		Plus,
@@ -16,7 +17,9 @@
 		ThumbsUp,
 		Radio,
 		Layers,
-		Sparkles
+		Sparkles,
+		Edit3,
+		ExternalLink
 	} from 'lucide-svelte';
 
 	import { createQuery, useQueryClient } from '@tanstack/svelte-query';
@@ -41,6 +44,8 @@
 	let videos = $derived(videosQuery.data || []);
 	let isLoading = $derived(videosQuery.isLoading);
 	let isAddModalOpen = $state(false);
+	let isEditModalOpen = $state(false);
+	let editingVideo = $state<VideoWithDetails | null>(null);
 	let isFilterOpen = $state(false);
 
 	let filters = $state<VideoTableFilterState>({
@@ -115,8 +120,13 @@
 		});
 	});
 
-	function handleVideoAdded() {
+	function handleDataChanged() {
 		queryClient.invalidateQueries({ queryKey: videosQueryKeys.all });
+	}
+
+	function openEditModal(videoItem: VideoWithDetails) {
+		editingVideo = videoItem;
+		isEditModalOpen = true;
 	}
 
 	let totalViews = $derived(filteredVideos.reduce((acc, v) => acc + (v.total_views || 0), 0));
@@ -129,7 +139,7 @@
 	const videoColumns: Column<VideoWithDetails>[] = [
 		{
 			key: 'title',
-			label: 'Video y Metadatos',
+			label: 'Video & Multi-Publicación',
 			sortable: true
 		},
 		{
@@ -164,6 +174,12 @@
 			align: 'right',
 			isMono: true,
 			sortable: true
+		},
+		{
+			key: 'id',
+			label: 'Acciones',
+			align: 'center',
+			sortable: false
 		}
 	];
 </script>
@@ -183,15 +199,21 @@
 			{#if row.internal_name}
 				<span class="font-mono text-gray-500">{row.internal_name} •</span>
 			{/if}
-			<div class="flex items-center gap-1">
-				{#each row.platforms as p}
-					<span class="px-1.5 py-0.2 rounded bg-gray-800 text-[10px] text-gray-300 uppercase font-mono">
-						{p}
+			<div class="flex items-center gap-1.5 flex-wrap">
+				{#each row.publications as pub}
+					<span
+						class="px-1.5 py-0.5 rounded text-[10px] font-mono uppercase font-semibold {pub.platform === 'youtube'
+							? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+							: pub.platform === 'tiktok'
+								? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
+								: pub.platform === 'twitch'
+									? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+									: 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'}"
+						title="{pub.publication_type} - {formatNumber(pub.views_count || 0)} vistas"
+					>
+						{pub.platform} ({pub.publication_type})
 					</span>
 				{/each}
-				{#if row.publications.length > 1}
-					<span class="text-[10px] text-indigo-400">({row.publications.length} pubs)</span>
-				{/if}
 			</div>
 		</div>
 	</div>
@@ -232,6 +254,21 @@
 	</span>
 {/snippet}
 
+{#snippet actionsCell({ row }: { row: VideoWithDetails })}
+	<div class="flex items-center justify-center gap-1.5">
+		<Button
+			variant="secondary"
+			size="sm"
+			onclick={() => openEditModal(row)}
+			class="h-7 px-2.5 text-xs text-indigo-300 hover:text-white"
+			title="Editar video y publicaciones"
+		>
+			<Edit3 size={13} />
+			<span>Editar</span>
+		</Button>
+	</div>
+{/snippet}
+
 <svelte:head>
 	<title>Catálogo de Videos | RRSS Creators Analyzer</title>
 </svelte:head>
@@ -242,10 +279,10 @@
 		<div>
 			<h1 class="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
 				<Video class="text-cyan-400" size={24} />
-				<span>Catálogo de Videos y Publicaciones</span>
+				<span>Catálogo de Videos & Multi-Publicación</span>
 			</h1>
 			<p class="text-xs text-gray-400 mt-1">
-				Estructura en 3 capas: Video Master, Publicaciones multi-plataforma (YouTube, TikTok) y Trazabilidad con transmisiones en vivo.
+				Estructura en 3 capas: Video Master, Publicaciones multi-plataforma (YouTube, TikTok) y Trazabilidad con directos.
 			</p>
 		</div>
 
@@ -313,21 +350,34 @@
 				{ ...videoColumns[2], render: durationCell },
 				{ ...videoColumns[3], render: viewsCell },
 				{ ...videoColumns[4], render: likesCell },
-				{ ...videoColumns[5], render: revenueCell }
+				{ ...videoColumns[5], render: revenueCell },
+				{ ...videoColumns[6], render: actionsCell }
 			]}
 			searchPlaceholder="Buscar por título, categoría o tags..."
 			searchKeys={['title', 'category', 'internal_name']}
 		/>
 	</div>
 
-	<!-- Modal para Ingestar Video -->
+	<!-- Modal para Registrar Video -->
 	{#if tenantStore.currentOrg}
 		<AddVideoModal
 			isOpen={isAddModalOpen}
 			organizationId={tenantStore.currentOrg.id}
 			creatorId={tenantStore.selectedCreatorId}
 			onClose={() => (isAddModalOpen = false)}
-			onAdded={handleVideoAdded}
+			onAdded={handleDataChanged}
+		/>
+
+		<EditVideoModal
+			isOpen={isEditModalOpen}
+			video={editingVideo}
+			organizationId={tenantStore.currentOrg.id}
+			onClose={() => {
+				isEditModalOpen = false;
+				editingVideo = null;
+			}}
+			onUpdated={handleDataChanged}
+			onDeleted={handleDataChanged}
 		/>
 	{/if}
 </div>

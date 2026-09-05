@@ -26,13 +26,16 @@
 	import {
 		BarChart3,
 		LineChart,
-		DollarSign,
-		Clock,
 		Users,
-		Zap,
+		UserPlus,
+		Eye,
+		ThumbsUp,
+		Clock,
 		ArrowLeft,
 		Video,
-		Sparkles
+		Sparkles,
+		Radio,
+		MessageSquare
 	} from 'lucide-svelte';
 
 	import { createQuery } from '@tanstack/svelte-query';
@@ -143,31 +146,21 @@
 	});
 
 	// Resumen recalculado
-	let summary = $derived.by<AnalyticsSummary>(() => {
-		const totalStreamEarnings = sessions.reduce((acc, s) => acc + Number(s.total_earnings || 0), 0);
-		const totalVideoEarnings = videos.reduce((acc, v) => acc + Number(v.total_revenue || 0), 0);
-		const totalDurationSecs = sessions.reduce((acc, s) => acc + (s.duration_seconds || 0), 0);
-		const totalHours = Number((totalDurationSecs / 3600).toFixed(1));
-		const avgCcv =
-			sessions.length > 0
-				? Math.round(sessions.reduce((acc, s) => acc + (s.avg_ccv || 0), 0) / sessions.length)
-				: 0;
-		const peakViewers = sessions.reduce((acc, s) => Math.max(acc, s.peak_viewers || 0), 0);
-		const earningsPerHour =
-			totalHours > 0 ? Number((totalStreamEarnings / totalHours).toFixed(2)) : 0;
+	let totalDurationSecs = $derived(sessions.reduce((acc, s) => acc + (s.duration_seconds || 0), 0));
+	let totalHours = $derived(Number((totalDurationSecs / 3600).toFixed(1)));
+	let avgCcv = $derived(
+		sessions.length > 0
+			? Math.round(sessions.reduce((acc, s) => acc + (s.avg_ccv || 0), 0) / sessions.length)
+			: 0
+	);
+	let peakViewers = $derived(sessions.reduce((acc, s) => Math.max(acc, s.peak_viewers || 0), 0));
+	let totalNewFollowers = $derived(sessions.reduce((acc, s) => acc + (s.new_followers || 0), 0));
+	let totalVideoViews = $derived(videos.reduce((acc, v) => acc + (v.total_views || 0), 0));
+	let totalVideoLikes = $derived(videos.reduce((acc, v) => acc + (v.total_likes || 0), 0));
 
-		return {
-			...rawSummary,
-			totalEarnings: totalStreamEarnings + totalVideoEarnings,
-			totalHours,
-			avgCcv,
-			peakViewers,
-			totalSessions: sessions.length,
-			earningsPerHour
-		};
-	});
-
-	// Gráfico 1: Concurrencia de Audiencia en Vivo
+	// --------------------------------------------------------------------------
+	// Gráfico 1: Concurrencia de Audiencia en Vivo (CCV y Picos)
+	// --------------------------------------------------------------------------
 	let concurrencyChartOptions = $derived.by<EChartsOption>(() => {
 		const sorted = [...sessions].sort(
 			(a, b) => new Date(a.streamed_at).getTime() - new Date(b.streamed_at).getTime()
@@ -237,8 +230,10 @@
 		};
 	});
 
-	// Gráfico 2: Ingresos por Stream
-	let earningsChartOptions = $derived.by<EChartsOption>(() => {
+	// --------------------------------------------------------------------------
+	// Gráfico 2: Crecimiento de Seguidores y Actividad de Chat por Directo
+	// --------------------------------------------------------------------------
+	let followersGrowthOptions = $derived.by<EChartsOption>(() => {
 		const sorted = [...sessions].sort(
 			(a, b) => new Date(a.streamed_at).getTime() - new Date(b.streamed_at).getTime()
 		);
@@ -246,8 +241,8 @@
 			const d = new Date(s.streamed_at);
 			return `${d.getDate()}/${d.getMonth() + 1}`;
 		});
-		const ad = sorted.map((s) => s.ad_revenue);
-		const subs = sorted.map((s) => s.subs_revenue);
+		const followers = sorted.map((s) => s.new_followers || 0);
+		const chat = sorted.map((s) => s.chat_messages_count || 0);
 
 		return {
 			tooltip: {
@@ -257,55 +252,141 @@
 				textStyle: { color: '#F9FAFB' }
 			},
 			legend: {
-				data: ['Publicidad', 'Suscripciones'],
-				textStyle: { color: '#9CA3AF' },
-				top: 0,
-				right: 0
+				data: ['Nuevos Seguidores (+)', 'Mensajes de Chat'],
+				textStyle: { color: '#9CA3AF', fontSize: 11 },
+				top: 0
 			},
-			grid: { left: '3%', right: '3%', bottom: '8%', top: '15%', containLabel: true },
+			grid: { left: '3%', right: '4%', bottom: '8%', top: '15%', containLabel: true },
 			xAxis: {
 				type: 'category',
 				data: dates,
 				axisLine: { lineStyle: { color: '#2D3748' } },
 				axisLabel: { color: '#9CA3AF', fontSize: 11 }
 			},
-			yAxis: {
-				type: 'value',
-				axisLine: { lineStyle: { color: '#2D3748' } },
-				splitLine: { lineStyle: { color: '#1F2937' } },
-				axisLabel: { color: '#9CA3AF', fontSize: 11, formatter: '${value}' }
-			},
-			series: [
+			yAxis: [
 				{
-					name: 'Publicidad',
-					type: 'bar',
-					stack: 'total',
-					data: ad,
-					itemStyle: { color: '#3B82F6' }
+					type: 'value',
+					name: 'Followers',
+					nameTextStyle: { color: '#10B981', fontSize: 11 },
+					splitLine: { lineStyle: { color: '#1F2937' } },
+					axisLabel: { color: '#9CA3AF' }
 				},
 				{
-					name: 'Suscripciones',
+					type: 'value',
+					name: 'Chat',
+					nameTextStyle: { color: '#A855F7', fontSize: 11 },
+					splitLine: { show: false },
+					axisLabel: { color: '#9CA3AF' }
+				}
+			],
+			series: [
+				{
+					name: 'Nuevos Seguidores (+)',
 					type: 'bar',
-					stack: 'total',
-					data: subs,
-					itemStyle: {
-						color: '#10B981',
-						borderRadius: [4, 4, 0, 0]
-					}
+					data: followers,
+					itemStyle: { color: '#10B981', borderRadius: [4, 4, 0, 0] }
+				},
+				{
+					name: 'Mensajes de Chat',
+					type: 'line',
+					yAxisIndex: 1,
+					smooth: true,
+					data: chat,
+					itemStyle: { color: '#A855F7' },
+					lineStyle: { width: 2 }
 				}
 			]
 		};
 	});
 
-	// Gráfico 3: Desglose Streams vs Videos
-	let revenueMixOptions = $derived.by<EChartsOption>(() => {
-		const streamEarnings = sessions.reduce((acc, s) => acc + Number(s.total_earnings || 0), 0);
-		const videoEarnings = videos.reduce((acc, v) => acc + Number(v.total_revenue || 0), 0);
+	// --------------------------------------------------------------------------
+	// Gráfico 3: Rendimiento de Videos (Vistas vs Likes)
+	// --------------------------------------------------------------------------
+	let videoPerformanceOptions = $derived.by<EChartsOption>(() => {
+		const topVideos = [...videos].sort((a, b) => (b.total_views || 0) - (a.total_views || 0)).slice(0, 6);
+		const titles = topVideos.map((v) => (v.title.length > 20 ? v.title.substring(0, 18) + '...' : v.title));
+		const views = topVideos.map((v) => v.total_views || 0);
+		const likes = topVideos.map((v) => v.total_likes || 0);
+
+		return {
+			tooltip: {
+				trigger: 'axis',
+				axisPointer: { type: 'shadow' },
+				backgroundColor: '#1F2937',
+				borderColor: '#374151',
+				textStyle: { color: '#F9FAFB' }
+			},
+			legend: {
+				data: ['Visualizaciones', 'Likes'],
+				textStyle: { color: '#9CA3AF', fontSize: 11 },
+				top: 0
+			},
+			grid: { left: '3%', right: '4%', bottom: '8%', top: '15%', containLabel: true },
+			xAxis: {
+				type: 'category',
+				data: titles,
+				axisLine: { lineStyle: { color: '#2D3748' } },
+				axisLabel: { color: '#9CA3AF', fontSize: 10, rotate: 15 }
+			},
+			yAxis: [
+				{
+					type: 'value',
+					name: 'Vistas',
+					nameTextStyle: { color: '#06B6D4', fontSize: 11 },
+					splitLine: { lineStyle: { color: '#1F2937' } },
+					axisLabel: { color: '#9CA3AF', formatter: (val: number) => formatNumber(val, true) }
+				},
+				{
+					type: 'value',
+					name: 'Likes',
+					nameTextStyle: { color: '#EC4899', fontSize: 11 },
+					splitLine: { show: false },
+					axisLabel: { color: '#9CA3AF', formatter: (val: number) => formatNumber(val, true) }
+				}
+			],
+			series: [
+				{
+					name: 'Visualizaciones',
+					type: 'bar',
+					data: views,
+					itemStyle: { color: '#06B6D4', borderRadius: [4, 4, 0, 0] }
+				},
+				{
+					name: 'Likes',
+					type: 'line',
+					yAxisIndex: 1,
+					data: likes,
+					itemStyle: { color: '#EC4899' },
+					lineStyle: { width: 3 }
+				}
+			]
+		};
+	});
+
+	// --------------------------------------------------------------------------
+	// Gráfico 4: Distribución de Vistas por Plataforma
+	// --------------------------------------------------------------------------
+	let platformViewsMixOptions = $derived.by<EChartsOption>(() => {
+		const platMap = new Map<string, number>();
+		for (const v of videos) {
+			for (const pub of v.publications || []) {
+				platMap.set(pub.platform, (platMap.get(pub.platform) || 0) + (pub.views_count || 0));
+			}
+		}
+
+		const pieData = Array.from(platMap.entries()).map(([name, value]) => ({
+			name: name.toUpperCase(),
+			value
+		}));
+
+		if (pieData.length === 0) {
+			pieData.push({ name: 'SIN DATOS', value: 1 });
+		}
 
 		return {
 			tooltip: {
 				trigger: 'item',
-				formatter: '{b}: ${c} ({d}%)',
+				formatter: '{b}: {c} vistas ({d}%)',
 				backgroundColor: '#1F2937',
 				borderColor: '#374151',
 				textStyle: { color: '#F9FAFB' }
@@ -317,9 +398,9 @@
 			},
 			series: [
 				{
-					name: 'Mix de Ingresos',
+					name: 'Vistas por Red',
 					type: 'pie',
-					radius: ['50%', '75%'],
+					radius: ['45%', '72%'],
 					center: ['50%', '42%'],
 					avoidLabelOverlap: false,
 					itemStyle: {
@@ -328,10 +409,7 @@
 						borderWidth: 2
 					},
 					label: { show: false },
-					data: [
-						{ value: streamEarnings, name: 'Streaming en Vivo', itemStyle: { color: '#6366F1' } },
-						{ value: videoEarnings, name: 'Videos Subidos / VODs', itemStyle: { color: '#06B6D4' } }
-					]
+					data: pieData
 				}
 			]
 		};
@@ -339,7 +417,7 @@
 </script>
 
 <svelte:head>
-	<title>{creator?.display_name || 'Creador'} | BI Dashboard</title>
+	<title>{creator?.display_name || 'Creador'} | BI Rendimiento</title>
 </svelte:head>
 
 <div class="space-y-6">
@@ -357,7 +435,7 @@
 				<div class="flex items-center gap-2">
 					<h1 class="text-xl font-bold tracking-tight text-white flex items-center gap-2">
 						<BarChart3 class="text-indigo-400" size={22} />
-						<span>Dashboard Analítico: {creator?.display_name || '...'}</span>
+						<span>Dashboard de Rendimiento: {creator?.display_name || '...'}</span>
 					</h1>
 					{#if creator?.primary_platform}
 						<Badge variant="purple" size="sm">
@@ -366,12 +444,12 @@
 					{/if}
 				</div>
 				<p class="text-xs text-gray-400 mt-0.5 font-mono">
-					@{creator?.handle || ''} • Métricas de rendimiento, ingresos y audiencia
+					@{creator?.handle || ''} • Métricas de retención, crecimiento de seguidores y visualizaciones
 				</p>
 			</div>
 		</div>
 
-		<!-- Action buttons con Drawer a la DERECHA -->
+		<!-- Action buttons -->
 		<div class="flex items-center gap-3">
 			<FilterTriggerButton
 				isOpen={isFilterDrawerOpen}
@@ -390,47 +468,47 @@
 		</div>
 	</div>
 
-	<!-- KPIs Grid Reactivo -->
+	<!-- KPIs Grid Reactivo Enfocado en Rendimiento -->
 	<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
 		<StatCard
-			title="Ingresos Totales (Periodo)"
-			value={formatCurrency(summary.totalEarnings)}
-			icon={DollarSign}
-			iconColor="emerald"
-			subtitle="Streams + Videos"
-		/>
-
-		<StatCard
-			title="Horas en Directo"
-			value={`${summary.totalHours} hrs`}
-			icon={Clock}
-			iconColor="indigo"
-			subtitle={`${summary.totalSessions} directos analizados`}
-		/>
-
-		<StatCard
-			title="Media de Concurrencia (CCV)"
-			value={formatNumber(summary.avgCcv)}
+			title="Audiencia Media (Avg CCV)"
+			value={formatNumber(avgCcv)}
 			icon={Users}
 			iconColor="cyan"
-			subtitle={`Pico máx: ${formatNumber(summary.peakViewers)}`}
+			subtitle={`Pico máx: ${formatNumber(peakViewers)} viewers`}
 		/>
 
 		<StatCard
-			title="Eficiencia ($ / Hora)"
-			value={formatCurrency(summary.earningsPerHour)}
-			icon={Zap}
-			iconColor="amber"
-			subtitle="Rendimiento streaming"
+			title="Nuevos Seguidores Ganados"
+			value={`+${formatNumber(totalNewFollowers, true)}`}
+			icon={UserPlus}
+			iconColor="emerald"
+			subtitle={`${sessions.length} directos analizados`}
+		/>
+
+		<StatCard
+			title="Visualizaciones de Videos"
+			value={formatNumber(totalVideoViews, true)}
+			icon={Eye}
+			iconColor="indigo"
+			subtitle={`${videos.length} videos publicados`}
+		/>
+
+		<StatCard
+			title="Likes Totales en Videos"
+			value={formatNumber(totalVideoLikes, true)}
+			icon={ThumbsUp}
+			iconColor="purple"
+			subtitle="Engagement de publicaciones"
 		/>
 	</div>
 
 	<!-- Gráficos ECharts -->
-	<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-		<!-- Gráfico de Concurrencia -->
-		<div class="lg:col-span-2 rounded-2xl border border-[#1F2937] bg-[#111827] p-5 shadow-xl">
+	<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+		<!-- Gráfico 1: Concurrencia de Audiencia Live -->
+		<div class="rounded-2xl border border-[#1F2937] bg-[#111827] p-5 shadow-xl">
 			<div class="flex items-center justify-between mb-4">
-				<h3 class="text-sm font-semibold text-white">Evolución de Concurrencia (CCV y Picos)</h3>
+				<h3 class="text-sm font-semibold text-white">Evolución de Concurrencia en Vivo (CCV y Picos)</h3>
 				<span class="text-xs text-gray-500 font-mono">{sessions.length} directos</span>
 			</div>
 			<div class="h-72 w-full">
@@ -438,24 +516,37 @@
 			</div>
 		</div>
 
-		<!-- Gráfico de Mix Streams vs Videos -->
+		<!-- Gráfico 2: Crecimiento de Seguidores y Chat -->
 		<div class="rounded-2xl border border-[#1F2937] bg-[#111827] p-5 shadow-xl">
 			<div class="flex items-center justify-between mb-4">
-				<h3 class="text-sm font-semibold text-white">Mix de Ingresos</h3>
+				<h3 class="text-sm font-semibold text-white">Adquisición de Followers & Chat por Directo</h3>
 			</div>
 			<div class="h-72 w-full">
-				<EChart options={revenueMixOptions} />
+				<EChart options={followersGrowthOptions} />
 			</div>
 		</div>
 	</div>
 
-	<!-- Gráfico de Ingresos por Día -->
-	<div class="rounded-2xl border border-[#1F2937] bg-[#111827] p-5 shadow-xl">
-		<div class="flex items-center justify-between mb-4">
-			<h3 class="text-sm font-semibold text-white">Ingresos por Publicidad y Suscripciones</h3>
+	<!-- Gráficos de Video -->
+	<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+		<!-- Gráfico 3: Rendimiento de Videos (Vistas vs Likes) -->
+		<div class="lg:col-span-2 rounded-2xl border border-[#1F2937] bg-[#111827] p-5 shadow-xl">
+			<div class="flex items-center justify-between mb-4">
+				<h3 class="text-sm font-semibold text-white">Top Videos por Visualizaciones & Likes</h3>
+			</div>
+			<div class="h-72 w-full">
+				<EChart options={videoPerformanceOptions} />
+			</div>
 		</div>
-		<div class="h-64 w-full">
-			<EChart options={earningsChartOptions} />
+
+		<!-- Gráfico 4: Distribución de Vistas por Plataforma -->
+		<div class="rounded-2xl border border-[#1F2937] bg-[#111827] p-5 shadow-xl">
+			<div class="flex items-center justify-between mb-4">
+				<h3 class="text-sm font-semibold text-white">Cuota de Vistas por Red</h3>
+			</div>
+			<div class="h-72 w-full">
+				<EChart options={platformViewsMixOptions} />
+			</div>
 		</div>
 	</div>
 

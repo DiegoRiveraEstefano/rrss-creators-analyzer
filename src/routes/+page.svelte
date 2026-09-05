@@ -13,6 +13,7 @@
 	import Button from '$lib/components/ui/Button.svelte';
 	import EChart from '$lib/components/charts/EChart.svelte';
 	import type { EChartsOption } from 'echarts';
+	import EditLiveModal from '$lib/components/creators/EditLiveModal.svelte';
 	import {
 		FilterDrawer,
 		FilterTriggerButton,
@@ -28,16 +29,22 @@
 		DollarSign,
 		Clock,
 		Users,
+		UserPlus,
+		Eye,
 		Zap,
 		TrendingUp,
 		Plus,
 		Radio,
-		Layers
+		Layers,
+		Edit3,
+		MessageSquare
 	} from 'lucide-svelte';
 
-	import { createQuery } from '@tanstack/svelte-query';
-	import { analyticsSummaryQueryOptions } from '$lib/query/analytics';
-	import { sessionsQueryOptions } from '$lib/query/sessions';
+	import { createQuery, useQueryClient } from '@tanstack/svelte-query';
+	import { analyticsSummaryQueryOptions, analyticsQueryKeys } from '$lib/query/analytics';
+	import { sessionsQueryOptions, sessionsQueryKeys } from '$lib/query/sessions';
+
+	const queryClient = useQueryClient();
 
 	const summaryQuery = createQuery(() =>
 		analyticsSummaryQueryOptions(tenantStore.currentOrg?.id, tenantStore.selectedCreatorId)
@@ -64,6 +71,8 @@
 
 	let isLoadingData = $derived(summaryQuery.isLoading || sessionsQuery.isLoading);
 	let isFilterDrawerOpen = $state(false);
+	let isEditLiveModalOpen = $state(false);
+	let editingSession = $state<StreamingSession | null>(null);
 
 	// Estado de filtros del Dashboard
 	let filters = $state<DashboardFilterState>({
@@ -171,7 +180,21 @@
 		};
 	});
 
-	// Opciones del gráfico de Concurrencia (ECharts)
+	let totalFollowersGained = $derived(sessions.reduce((acc, s) => acc + (s.new_followers || 0), 0));
+
+	function handleDataChanged() {
+		queryClient.invalidateQueries({ queryKey: sessionsQueryKeys.all });
+		queryClient.invalidateQueries({ queryKey: analyticsQueryKeys.all });
+	}
+
+	function openEditSession(sessionItem: StreamingSession) {
+		editingSession = sessionItem;
+		isEditLiveModalOpen = true;
+	}
+
+	// --------------------------------------------------------------------------
+	// Gráfico 1: Evolución de Audiencia (CCV & Picos)
+	// --------------------------------------------------------------------------
 	let audienceChartOptions = $derived.by<EChartsOption>(() => {
 		const sorted = [...sessions].sort(
 			(a, b) => new Date(a.streamed_at).getTime() - new Date(b.streamed_at).getTime()
@@ -241,8 +264,10 @@
 		};
 	});
 
-	// Opciones del gráfico de Ingresos por Día (ECharts)
-	let revenueChartOptions = $derived.by<EChartsOption>(() => {
+	// --------------------------------------------------------------------------
+	// Gráfico 2: Crecimiento de Seguidores y Actividad de Chat
+	// --------------------------------------------------------------------------
+	let followersGrowthOptions = $derived.by<EChartsOption>(() => {
 		const sorted = [...sessions].sort(
 			(a, b) => new Date(a.streamed_at).getTime() - new Date(b.streamed_at).getTime()
 		);
@@ -250,44 +275,67 @@
 			const d = new Date(s.streamed_at);
 			return `${d.getDate()}/${d.getMonth() + 1}`;
 		});
-		const earningsValues = sorted.map((s) => s.total_earnings);
+		const followers = sorted.map((s) => s.new_followers || 0);
+		const chat = sorted.map((s) => s.chat_messages_count || 0);
 
 		return {
 			tooltip: {
 				trigger: 'axis',
-				formatter: '{b}: ${c}',
 				backgroundColor: '#1F2937',
 				borderColor: '#374151',
 				textStyle: { color: '#F9FAFB' }
 			},
-			grid: { left: '3%', right: '3%', bottom: '8%', top: '10%', containLabel: true },
+			legend: {
+				data: ['Nuevos Seguidores (+)', 'Mensajes de Chat'],
+				textStyle: { color: '#9CA3AF', fontSize: 11 },
+				top: 0
+			},
+			grid: { left: '3%', right: '4%', bottom: '8%', top: '15%', containLabel: true },
 			xAxis: {
 				type: 'category',
 				data: dates,
 				axisLine: { lineStyle: { color: '#2D3748' } },
 				axisLabel: { color: '#9CA3AF', fontSize: 11 }
 			},
-			yAxis: {
-				type: 'value',
-				axisLine: { lineStyle: { color: '#2D3748' } },
-				splitLine: { lineStyle: { color: '#1F2937' } },
-				axisLabel: { color: '#9CA3AF', fontSize: 11, formatter: '${value}' }
-			},
+			yAxis: [
+				{
+					type: 'value',
+					name: 'Followers',
+					nameTextStyle: { color: '#10B981', fontSize: 11 },
+					splitLine: { lineStyle: { color: '#1F2937' } },
+					axisLabel: { color: '#9CA3AF' }
+				},
+				{
+					type: 'value',
+					name: 'Chat',
+					nameTextStyle: { color: '#A855F7', fontSize: 11 },
+					splitLine: { show: false },
+					axisLabel: { color: '#9CA3AF' }
+				}
+			],
 			series: [
 				{
-					name: 'Ingresos',
+					name: 'Nuevos Seguidores (+)',
 					type: 'bar',
-					data: earningsValues,
-					itemStyle: {
-						color: '#10B981',
-						borderRadius: [4, 4, 0, 0]
-					}
+					data: followers,
+					itemStyle: { color: '#10B981', borderRadius: [4, 4, 0, 0] }
+				},
+				{
+					name: 'Mensajes de Chat',
+					type: 'line',
+					yAxisIndex: 1,
+					smooth: true,
+					data: chat,
+					itemStyle: { color: '#A855F7' },
+					lineStyle: { width: 2 }
 				}
 			]
 		};
 	});
 
+	// --------------------------------------------------------------------------
 	// Gráfico 3: Cuota de Horas por Categoría (Pie)
+	// --------------------------------------------------------------------------
 	let categoryShareOptions = $derived.by<EChartsOption>(() => {
 		const catMap = new Map<string, number>();
 		for (const s of sessions) {
@@ -339,9 +387,25 @@
 		{ key: 'hours_streamed', label: 'Horas', align: 'right', isMono: true, sortable: true },
 		{ key: 'avg_ccv', label: 'CCV', align: 'right', isMono: true, sortable: true },
 		{ key: 'peak_viewers', label: 'Pico', align: 'right', isMono: true, sortable: true },
-		{ key: 'total_earnings', label: 'Ingresos ($)', align: 'right', isMono: true, sortable: true }
+		{ key: 'new_followers', label: 'Followers +', align: 'right', isMono: true, sortable: true },
+		{ key: 'id', label: 'Acciones', align: 'center', sortable: false }
 	];
 </script>
+
+{#snippet sessionActionCell({ row }: { row: StreamingSession })}
+	<div class="flex items-center justify-center">
+		<Button
+			variant="secondary"
+			size="sm"
+			onclick={() => openEditSession(row)}
+			class="h-7 px-2.5 text-xs text-indigo-300 hover:text-white"
+			title="Editar emisión"
+		>
+			<Edit3 size={13} />
+			<span>Editar</span>
+		</Button>
+	</div>
+{/snippet}
 
 <svelte:head>
 	<title>Analytics Dashboard | RRSS Creators Analyzer</title>
@@ -353,10 +417,10 @@
 		<div>
 			<h1 class="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
 				<TrendingUp class="text-indigo-400" size={24} />
-				<span>Panel de Rendimiento Global</span>
+				<span>Panel de Rendimiento & Audiencia</span>
 			</h1>
 			<p class="text-xs text-gray-400 mt-1">
-				Métricas agregadas en tiempo real de directos, videos y canales para el espacio activo.
+				Métricas agregadas en tiempo real de audiencia concurrente, crecimiento de seguidores y actividad.
 			</p>
 		</div>
 
@@ -380,15 +444,15 @@
 		</div>
 	</div>
 
-	<!-- KPIs / Stat Cards Reactivos -->
+	<!-- KPIs / Stat Cards Reactivos enfocados en Rendimiento -->
 	<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
 		<StatCard
-			title="Ingresos Totales"
-			value={formatCurrency(summary.totalEarnings)}
-			changePct={summary.earningsChangePct}
-			icon={DollarSign}
-			iconColor="emerald"
-			subtitle="Streams + Videos"
+			title="Media de Concurrencia (CCV)"
+			value={formatNumber(summary.avgCcv)}
+			changePct={summary.ccvChangePct}
+			icon={Users}
+			iconColor="cyan"
+			subtitle={`Pico máx: ${formatNumber(summary.peakViewers)}`}
 		/>
 
 		<StatCard
@@ -401,20 +465,19 @@
 		/>
 
 		<StatCard
-			title="Media de Concurrencia (CCV)"
-			value={formatNumber(summary.avgCcv)}
-			changePct={summary.ccvChangePct}
-			icon={Users}
-			iconColor="cyan"
-			subtitle={`Pico máx: ${formatNumber(summary.peakViewers)}`}
+			title="Nuevos Seguidores (+)"
+			value={`+${formatNumber(totalFollowersGained, true)}`}
+			icon={UserPlus}
+			iconColor="emerald"
+			subtitle="Crecimiento en directos"
 		/>
 
 		<StatCard
-			title="Rendimiento ($ / Hora)"
-			value={formatCurrency(summary.earningsPerHour)}
-			icon={Zap}
-			iconColor="amber"
-			subtitle="Eficiencia estimada"
+			title="Visualizaciones de Videos"
+			value={formatNumber(summary.totalVideoViews || 0, true)}
+			icon={Eye}
+			iconColor="purple"
+			subtitle={`${summary.totalVideos || 0} publicaciones`}
 		/>
 	</div>
 
@@ -442,20 +505,20 @@
 		</div>
 	</div>
 
-	<!-- Gráfico de Ingresos por Día -->
+	<!-- Gráfico de Seguidores y Chat -->
 	<div class="rounded-2xl border border-[#1F2937] bg-[#111827] p-5 shadow-xl">
 		<div class="flex items-center justify-between mb-4">
-			<h3 class="text-sm font-semibold text-white">Ingresos por Sesión de Transmisión</h3>
+			<h3 class="text-sm font-semibold text-white">Crecimiento de Seguidores & Actividad de Chat</h3>
 			<span class="text-xs text-emerald-400 font-mono font-semibold">
-				Total: {formatCurrency(sessions.reduce((a, b) => a + Number(b.total_earnings || 0), 0))}
+				Total Followers: +{formatNumber(totalFollowersGained, true)}
 			</span>
 		</div>
 		<div class="h-64 w-full">
-			<EChart options={revenueChartOptions} />
+			<EChart options={followersGrowthOptions} />
 		</div>
 	</div>
 
-	<!-- Tabla Resumen de Sesiones Recientes -->
+	<!-- Tabla Resumen de Sesiones Recientes con Acción de Editar -->
 	<div class="space-y-3">
 		<div class="flex items-center justify-between">
 			<h3 class="text-base font-semibold text-white flex items-center gap-2">
@@ -466,11 +529,31 @@
 
 		<DataTable
 			data={sessions}
-			columns={sessionColumns}
+			columns={[
+				...sessionColumns.slice(0, 7),
+				{
+					...sessionColumns[7],
+					render: sessionActionCell
+				}
+			]}
 			searchPlaceholder="Buscar por título o categoría..."
 			searchKeys={['session_title', 'game_or_category', 'platform']}
 		/>
 	</div>
+
+	<!-- Modal de Edición de Sesión -->
+	{#if tenantStore.currentOrg}
+		<EditLiveModal
+			isOpen={isEditLiveModalOpen}
+			session={editingSession}
+			onClose={() => {
+				isEditLiveModalOpen = false;
+				editingSession = null;
+			}}
+			onUpdated={handleDataChanged}
+			onDeleted={handleDataChanged}
+		/>
+	{/if}
 
 	<!-- Drawer de Filtros a la DERECHA -->
 	<FilterDrawer

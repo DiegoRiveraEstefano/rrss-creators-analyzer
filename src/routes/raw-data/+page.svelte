@@ -5,13 +5,16 @@
 		videoService,
 		type Video,
 		type VideoPublication,
-		type VideoRelation
+		type VideoRelation,
+		type VideoWithDetails
 	} from '$lib/services/videoService';
 	import { importService, type ImportBatch } from '$lib/services/importService';
 	import { supabase } from '$lib/supabase/client';
 	import DataTable from '$lib/components/ui/DataTable.svelte';
 	import type { Column } from '$lib/types/ui';
 	import Button from '$lib/components/ui/Button.svelte';
+	import EditLiveModal from '$lib/components/creators/EditLiveModal.svelte';
+	import EditVideoModal from '$lib/components/creators/EditVideoModal.svelte';
 	import {
 		Database,
 		Radio,
@@ -19,7 +22,8 @@
 		FileSpreadsheet,
 		RefreshCw,
 		Layers,
-		Link2
+		Link2,
+		Edit3
 	} from 'lucide-svelte';
 
 	import {
@@ -36,12 +40,18 @@
 		'sessions'
 	);
 	let sessions = $state<StreamingSession[]>([]);
-	let masterVideos = $state<Video[]>([]);
+	let masterVideos = $state<VideoWithDetails[]>([]);
 	let publications = $state<VideoPublication[]>([]);
 	let relations = $state<VideoRelation[]>([]);
 	let batches = $state<ImportBatch[]>([]);
 	let isLoading = $state(true);
 	let isFilterOpen = $state(false);
+
+	let isEditLiveModalOpen = $state(false);
+	let editingSession = $state<StreamingSession | null>(null);
+
+	let isEditVideoModalOpen = $state(false);
+	let editingVideo = $state<VideoWithDetails | null>(null);
 
 	let filters = $state<RawDataTableFilterState>({
 		dateRange: { preset: 'all' },
@@ -146,21 +156,16 @@
 		try {
 			const orgId = tenantStore.currentOrg.id;
 
-			const { data: rawVideos } = await supabase
-				.from('videos')
-				.select('*')
-				.eq('organization_id', orgId)
-				.order('created_at', { ascending: false });
-
-			const [s, p, r, b] = await Promise.all([
+			const [s, v, p, r, b] = await Promise.all([
 				analyticsService.getSessions(orgId),
+				videoService.getVideos(orgId),
 				videoService.getRawPublications(orgId, 200),
 				videoService.getRawRelations(orgId, 200),
 				importService.getImportBatches(orgId)
 			]);
 
 			sessions = s;
-			masterVideos = rawVideos || [];
+			masterVideos = v;
 			publications = p;
 			relations = r;
 			batches = b;
@@ -177,6 +182,16 @@
 		}
 	});
 
+	function openEditSession(sessionItem: StreamingSession) {
+		editingSession = sessionItem;
+		isEditLiveModalOpen = true;
+	}
+
+	function openEditVideo(videoItem: VideoWithDetails) {
+		editingVideo = videoItem;
+		isEditVideoModalOpen = true;
+	}
+
 	// 1. Columnas Sesiones
 	const sessionColumns: Column<StreamingSession>[] = [
 		{ key: 'id', label: 'UUID', isMono: true, sortable: true },
@@ -190,11 +205,12 @@
 		{ key: 'peak_viewers', label: 'Pico', align: 'right', isMono: true, sortable: true },
 		{ key: 'ad_revenue', label: 'Ads ($)', align: 'right', isMono: true, sortable: true },
 		{ key: 'subs_revenue', label: 'Subs ($)', align: 'right', isMono: true, sortable: true },
-		{ key: 'total_earnings', label: 'Total ($)', align: 'right', isMono: true, sortable: true }
+		{ key: 'total_earnings', label: 'Total ($)', align: 'right', isMono: true, sortable: true },
+		{ key: 'id', label: 'Acciones', align: 'center', sortable: false }
 	];
 
 	// 2. Columnas Videos Master
-	const masterVideoColumns: Column<Video>[] = [
+	const masterVideoColumns: Column<VideoWithDetails>[] = [
 		{ key: 'id', label: 'UUID', isMono: true, sortable: true },
 		{ key: 'title', label: 'Título Principal', sortable: true },
 		{ key: 'internal_name', label: 'Nombre Interno', isMono: true, sortable: true },
@@ -202,7 +218,8 @@
 		{ key: 'duration_seconds', label: 'Duración (s)', align: 'right', isMono: true, sortable: true },
 		{ key: 'production_cost', label: 'Costo ($)', align: 'right', isMono: true, sortable: true },
 		{ key: 'status', label: 'Estado', align: 'center', sortable: true },
-		{ key: 'created_at', label: 'Creado UTC', isMono: true, sortable: true }
+		{ key: 'created_at', label: 'Creado UTC', isMono: true, sortable: true },
+		{ key: 'id', label: 'Acciones', align: 'center', sortable: false }
 	];
 
 	// 3. Columnas Publicaciones
@@ -242,6 +259,36 @@
 	];
 </script>
 
+{#snippet sessionActionCell({ row }: { row: StreamingSession })}
+	<div class="flex items-center justify-center">
+		<Button
+			variant="secondary"
+			size="sm"
+			onclick={() => openEditSession(row)}
+			class="h-7 px-2.5 text-xs text-indigo-300 hover:text-white"
+			title="Editar sesión"
+		>
+			<Edit3 size={13} />
+			<span>Editar</span>
+		</Button>
+	</div>
+{/snippet}
+
+{#snippet videoActionCell({ row }: { row: VideoWithDetails })}
+	<div class="flex items-center justify-center">
+		<Button
+			variant="secondary"
+			size="sm"
+			onclick={() => openEditVideo(row)}
+			class="h-7 px-2.5 text-xs text-indigo-300 hover:text-white"
+			title="Editar video"
+		>
+			<Edit3 size={13} />
+			<span>Editar</span>
+		</Button>
+	</div>
+{/snippet}
+
 <svelte:head>
 	<title>Explorador de Tablas Crudas | RRSS Creators Analyzer</title>
 </svelte:head>
@@ -255,7 +302,7 @@
 				<span>Explorador de Tablas y Datos Crudos</span>
 			</h1>
 			<p class="text-xs text-gray-400 mt-1">
-				Inspección directa de las tablas normalizadas de PostgreSQL en Supabase sin transformaciones intermedias.
+				Inspección y edición directa de las tablas normalizadas de PostgreSQL en Supabase.
 			</p>
 		</div>
 
@@ -335,14 +382,26 @@
 	{#if activeTable === 'sessions'}
 		<DataTable
 			data={filteredSessions}
-			columns={sessionColumns}
+			columns={[
+				...sessionColumns.slice(0, 12),
+				{
+					...sessionColumns[12],
+					render: sessionActionCell
+				}
+			]}
 			searchPlaceholder="Buscar en streaming_sessions..."
 			searchKeys={['session_title', 'game_or_category', 'platform']}
 		/>
 	{:else if activeTable === 'videos'}
 		<DataTable
 			data={filteredMasterVideos}
-			columns={masterVideoColumns}
+			columns={[
+				...masterVideoColumns.slice(0, 8),
+				{
+					...masterVideoColumns[8],
+					render: videoActionCell
+				}
+			]}
 			searchPlaceholder="Buscar en videos master..."
 			searchKeys={['title', 'category', 'internal_name', 'status']}
 		/>
@@ -366,6 +425,32 @@
 			columns={batchColumns}
 			searchPlaceholder="Buscar en import_batches..."
 			searchKeys={['filename', 'source_platform', 'status']}
+		/>
+	{/if}
+
+	<!-- Modales de Edición -->
+	{#if tenantStore.currentOrg}
+		<EditLiveModal
+			isOpen={isEditLiveModalOpen}
+			session={editingSession}
+			onClose={() => {
+				isEditLiveModalOpen = false;
+				editingSession = null;
+			}}
+			onUpdated={loadRawData}
+			onDeleted={loadRawData}
+		/>
+
+		<EditVideoModal
+			isOpen={isEditVideoModalOpen}
+			video={editingVideo}
+			organizationId={tenantStore.currentOrg.id}
+			onClose={() => {
+				isEditVideoModalOpen = false;
+				editingVideo = null;
+			}}
+			onUpdated={loadRawData}
+			onDeleted={loadRawData}
 		/>
 	{/if}
 </div>

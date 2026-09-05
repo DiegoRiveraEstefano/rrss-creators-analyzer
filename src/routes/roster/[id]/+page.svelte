@@ -15,6 +15,8 @@
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import EditCreatorModal from '$lib/components/creators/EditCreatorModal.svelte';
+	import EditLiveModal from '$lib/components/creators/EditLiveModal.svelte';
+	import EditVideoModal from '$lib/components/creators/EditVideoModal.svelte';
 	import AddSessionModal from '$lib/components/creators/AddSessionModal.svelte';
 	import AddVideoModal from '$lib/components/creators/AddVideoModal.svelte';
 	import {
@@ -27,6 +29,7 @@
 		TrendingUp,
 		Plus,
 		Edit,
+		Edit3,
 		ExternalLink,
 		ArrowLeft,
 		BarChart3,
@@ -64,6 +67,10 @@
 	let isEditModalOpen = $state(false);
 	let isAddSessionModalOpen = $state(false);
 	let isAddVideoModalOpen = $state(false);
+	let isEditLiveModalOpen = $state(false);
+	let isEditVideoModalOpen = $state(false);
+	let editingSession = $state<StreamingSession | null>(null);
+	let editingVideo = $state<VideoWithDetails | null>(null);
 	let activeTab = $state<'sessions' | 'videos'>('sessions');
 
 	function handleInvalidateAll() {
@@ -74,6 +81,16 @@
 		tenantStore.loadCreators();
 	}
 
+	function openEditSession(sessionItem: StreamingSession) {
+		editingSession = sessionItem;
+		isEditLiveModalOpen = true;
+	}
+
+	function openEditVideo(videoItem: VideoWithDetails) {
+		editingVideo = videoItem;
+		isEditVideoModalOpen = true;
+	}
+
 	// Columnas para Sesiones de Streaming
 	const sessionColumns: Column<StreamingSession>[] = [
 		{ key: 'session_title', label: 'Título de Emisión', sortable: true },
@@ -82,7 +99,8 @@
 		{ key: 'hours_streamed', label: 'Duración', align: 'right', isMono: true, sortable: true },
 		{ key: 'avg_ccv', label: 'Media CCV', align: 'right', isMono: true, sortable: true },
 		{ key: 'peak_viewers', label: 'Pico Viewers', align: 'right', isMono: true, sortable: true },
-		{ key: 'total_earnings', label: 'Ingresos ($)', align: 'right', isMono: true, sortable: true }
+		{ key: 'total_earnings', label: 'Ingresos ($)', align: 'right', isMono: true, sortable: true },
+		{ key: 'id', label: 'Acciones', align: 'center', sortable: false }
 	];
 
 	// Columnas para Videos
@@ -92,7 +110,8 @@
 		{ key: 'duration_seconds', label: 'Duración (s)', align: 'right', isMono: true, sortable: true },
 		{ key: 'total_views', label: 'Visualizaciones', align: 'right', isMono: true, sortable: true },
 		{ key: 'total_likes', label: 'Likes', align: 'right', isMono: true, sortable: true },
-		{ key: 'total_revenue', label: 'Ingresos Est. ($)', align: 'right', isMono: true, sortable: true }
+		{ key: 'total_revenue', label: 'Ingresos Est. ($)', align: 'right', isMono: true, sortable: true },
+		{ key: 'id', label: 'Acciones', align: 'center', sortable: false }
 	];
 </script>
 
@@ -253,19 +272,61 @@
 			{#if activeTab === 'sessions'}
 				<DataTable
 					data={sessions}
-					columns={sessionColumns}
+					columns={[
+						...sessionColumns.slice(0, 7),
+						{
+							...sessionColumns[7],
+							render: sessionActionCell
+						}
+					]}
 					searchPlaceholder="Buscar en transmisiones del creador..."
 					searchKeys={['session_title', 'game_or_category']}
 				/>
 			{:else}
 				<DataTable
 					data={videos}
-					columns={videoColumns}
+					columns={[
+						...videoColumns.slice(0, 6),
+						{
+							...videoColumns[6],
+							render: videoActionCell
+						}
+					]}
 					searchPlaceholder="Buscar en videos del creador..."
 					searchKeys={['title', 'category']}
 				/>
 			{/if}
 		</div>
+
+		{#snippet sessionActionCell({ row }: { row: StreamingSession })}
+			<div class="flex items-center justify-center">
+				<Button
+					variant="secondary"
+					size="sm"
+					onclick={() => openEditSession(row)}
+					class="h-7 px-2.5 text-xs text-indigo-300 hover:text-white"
+					title="Editar sesión"
+				>
+					<Edit3 size={13} />
+					<span>Editar</span>
+				</Button>
+			</div>
+		{/snippet}
+
+		{#snippet videoActionCell({ row }: { row: VideoWithDetails })}
+			<div class="flex items-center justify-center">
+				<Button
+					variant="secondary"
+					size="sm"
+					onclick={() => openEditVideo(row)}
+					class="h-7 px-2.5 text-xs text-indigo-300 hover:text-white"
+					title="Editar video"
+				>
+					<Edit3 size={13} />
+					<span>Editar</span>
+				</Button>
+			</div>
+		{/snippet}
 
 		<!-- Modales de Edición e Ingesta -->
 		<EditCreatorModal
@@ -276,6 +337,29 @@
 		/>
 
 		{#if tenantStore.currentOrg}
+			<EditLiveModal
+				isOpen={isEditLiveModalOpen}
+				session={editingSession}
+				onClose={() => {
+					isEditLiveModalOpen = false;
+					editingSession = null;
+				}}
+				onUpdated={handleInvalidateAll}
+				onDeleted={handleInvalidateAll}
+			/>
+
+			<EditVideoModal
+				isOpen={isEditVideoModalOpen}
+				video={editingVideo}
+				organizationId={tenantStore.currentOrg.id}
+				onClose={() => {
+					isEditVideoModalOpen = false;
+					editingVideo = null;
+				}}
+				onUpdated={handleInvalidateAll}
+				onDeleted={handleInvalidateAll}
+			/>
+
 			<AddSessionModal
 				isOpen={isAddSessionModalOpen}
 				organizationId={tenantStore.currentOrg.id}

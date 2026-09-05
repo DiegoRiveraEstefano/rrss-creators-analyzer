@@ -76,6 +76,65 @@
 	let urlTab = $derived(page.url.searchParams.get('tab') as ViewTab | null);
 	let activeTab = $derived<ViewTab>(urlTab || 'mv_creator_performance');
 
+	const VIEW_METADATA: Record<ViewTab, { title: string; subtitle: string; icon: any; group: string }> = {
+		mv_creator_performance: {
+			title: 'Rendimiento y Métricas por Creador',
+			subtitle: 'Consolidación de horas en directo, media de concurrencia (CCV) y métricas de publicaciones por cada talento.',
+			icon: Zap,
+			group: 'Vistas Materializadas'
+		},
+		mv_platform_performance: {
+			title: 'Rendimiento Comparativo de Plataformas',
+			subtitle: 'Comparativa acumulada por red social evaluando emisiones en vivo vs. publicaciones de video.',
+			icon: Layers,
+			group: 'Vistas Materializadas'
+		},
+		mv_platform_category: {
+			title: 'Estadísticas por Categoría y Juego',
+			subtitle: 'Desglose multidimensional de sesiones, horas transmitidas y retención de audiencia por temática.',
+			icon: Radio,
+			group: 'Vistas Materializadas'
+		},
+		mv_monthly_revenue: {
+			title: 'Evolución Mensual de Streams y Videos',
+			subtitle: 'Rollup temporal mensual con horas de directo, CCV promedio y rendimiento financiero consolidado.',
+			icon: Calendar,
+			group: 'Vistas Materializadas'
+		},
+		mv_content_type: {
+			title: 'Métricas por Formato de Contenido',
+			subtitle: 'Rendimiento diferenciado entre videos Standard, Shorts/Reels, VODs completos y Clips destacados.',
+			icon: Video,
+			group: 'Vistas Materializadas'
+		},
+		v_creator_rankings: {
+			title: 'Leaderboard & Rankings del Roster',
+			subtitle: 'Clasificación posicional con funciones de ventana por ingresos combinados, CCV medio y horas de transmisión.',
+			icon: Trophy,
+			group: 'Consultas SQL'
+		},
+		v_daily_stream: {
+			title: 'Analítica Diaria de Transmisiones',
+			subtitle: 'Registro de métricas por día con horas emitidas, CCV promedio, nuevos seguidores y actividad en chat.',
+			icon: Activity,
+			group: 'Consultas SQL'
+		},
+		v_video_details: {
+			title: 'Detalle de Videos & Rendimiento ROI',
+			subtitle: 'Métricas unitarias por publicación con visualizaciones, likes, tasa de engagement y rentabilidad calculada.',
+			icon: Eye,
+			group: 'Consultas SQL'
+		},
+		v_recent_activity: {
+			title: 'Timeline de Actividad Reciente',
+			subtitle: 'Flujo cronológico consolidado de directos realizados, videos subidos y eventos del canal.',
+			icon: Sparkles,
+			group: 'Consultas SQL'
+		}
+	};
+
+	let activeViewMeta = $derived(VIEW_METADATA[activeTab] || VIEW_METADATA.mv_creator_performance);
+
 	function selectTab(tab: ViewTab) {
 		goto(`/views?tab=${tab}`, { keepFocus: true, noScroll: true });
 	}
@@ -553,33 +612,36 @@
 </script>
 
 <svelte:head>
-	<title>Módulo de Vistas SQL & Materializadas | RRSS Creators Analyzer</title>
+	<title>{activeViewMeta.title} | RRSS Creators Analyzer</title>
 </svelte:head>
 
 <div class="space-y-6">
-	<!-- Page Header -->
+	<!-- Individualized View Header -->
 	<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
 		<div>
 			<div class="flex items-center gap-2 text-xs text-indigo-400 font-mono mb-1">
-				<span>Vistas & Agregaciones</span>
+				<span>{activeViewMeta.group}</span>
 				<span>/</span>
-				<span class="text-white font-semibold">{activeTab}</span>
+				<span class="text-white font-semibold">{activeViewMeta.title}</span>
 			</div>
 			<h1 class="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
-				<Database class="text-indigo-400" size={24} />
-				<span>Vistas Materializadas & Consultas SQL (Solo Lectura)</span>
+				{#if activeViewMeta.icon}
+					{@const IconComponent = activeViewMeta.icon}
+					<IconComponent class="text-indigo-400" size={24} />
+				{/if}
+				<span>{activeViewMeta.title}</span>
 			</h1>
 			<p class="text-xs text-gray-400 mt-1">
-				Inspección de vistas con triggers concurrentes y vistas SQL seguras que respetan el RLS del usuario.
+				{activeViewMeta.subtitle}
 			</p>
 		</div>
 
 		<div class="flex items-center gap-2.5">
-			<!-- Botón de Filtros Dedicados -->
+			<!-- Botón de Filtros Dedicados para la vista actual -->
 			<FilterTriggerButton
 				isOpen={isFilterDrawerOpen}
 				activeCount={activeFilterCount}
-				label="Filtros de Tabla"
+				label="Filtros de Vista"
 				size="sm"
 				onclick={() => (isFilterDrawerOpen = !isFilterDrawerOpen)}
 			/>
@@ -591,7 +653,7 @@
 				isLoading={isRefreshing}
 			>
 				<RefreshCw size={14} class={isRefreshing ? 'animate-spin' : ''} />
-				<span>Refrescar Vistas</span>
+				<span>Refrescar Datos</span>
 			</Button>
 
 			<Button variant="outline" size="sm" onclick={exportCurrentViewToCsv}>
@@ -608,156 +670,6 @@
 			<span>{refreshMessage}</span>
 		</div>
 	{/if}
-
-	<!-- Barra Rápida de Selección de Vistas -->
-	<div class="flex flex-wrap items-center gap-2 border-b border-[#1F2937] pb-3">
-		<button
-			onclick={() => selectTab('mv_creator_performance')}
-			class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl transition-all {activeTab ===
-			'mv_creator_performance'
-				? 'bg-indigo-600/25 text-white border border-indigo-500/40 shadow-sm'
-				: 'text-gray-400 hover:text-white hover:bg-gray-800'}"
-		>
-			<Zap size={13} class="text-indigo-400" />
-			<span>Rendimiento Creadores ({filteredMvCreatorPerf.length})</span>
-		</button>
-
-		<button
-			onclick={() => selectTab('mv_platform_performance')}
-			class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl transition-all {activeTab ===
-			'mv_platform_performance'
-				? 'bg-indigo-600/25 text-white border border-indigo-500/40 shadow-sm'
-				: 'text-gray-400 hover:text-white hover:bg-gray-800'}"
-		>
-			<Layers size={13} class="text-indigo-400" />
-			<span>Plataformas ({filteredMvPlatformPerf.length})</span>
-		</button>
-
-		<button
-			onclick={() => selectTab('mv_platform_category')}
-			class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl transition-all {activeTab ===
-			'mv_platform_category'
-				? 'bg-indigo-600/25 text-white border border-indigo-500/40 shadow-sm'
-				: 'text-gray-400 hover:text-white hover:bg-gray-800'}"
-		>
-			<Radio size={13} class="text-indigo-400" />
-			<span>Categorías ({filteredMvCategory.length})</span>
-		</button>
-
-		<button
-			onclick={() => selectTab('mv_monthly_revenue')}
-			class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl transition-all {activeTab ===
-			'mv_monthly_revenue'
-				? 'bg-indigo-600/25 text-white border border-indigo-500/40 shadow-sm'
-				: 'text-gray-400 hover:text-white hover:bg-gray-800'}"
-		>
-			<Calendar size={13} class="text-indigo-400" />
-			<span>Ingresos Mensuales ({filteredMvMonthly.length})</span>
-		</button>
-
-		<button
-			onclick={() => selectTab('mv_content_type')}
-			class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl transition-all {activeTab ===
-			'mv_content_type'
-				? 'bg-indigo-600/25 text-white border border-indigo-500/40 shadow-sm'
-				: 'text-gray-400 hover:text-white hover:bg-gray-800'}"
-		>
-			<Video size={13} class="text-indigo-400" />
-			<span>Formatos de Video ({filteredMvContentType.length})</span>
-		</button>
-
-		<button
-			onclick={() => selectTab('v_creator_rankings')}
-			class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl transition-all {activeTab ===
-			'v_creator_rankings'
-				? 'bg-emerald-600/25 text-white border border-emerald-500/40 shadow-sm'
-				: 'text-gray-400 hover:text-white hover:bg-gray-800'}"
-		>
-			<Trophy size={13} class="text-emerald-400" />
-			<span>Rankings Leaderboard ({filteredVRankings.length})</span>
-		</button>
-
-		<button
-			onclick={() => selectTab('v_daily_stream')}
-			class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl transition-all {activeTab ===
-			'v_daily_stream'
-				? 'bg-emerald-600/25 text-white border border-emerald-500/40 shadow-sm'
-				: 'text-gray-400 hover:text-white hover:bg-gray-800'}"
-		>
-			<Activity size={13} class="text-emerald-400" />
-			<span>Analítica Diaria ({filteredVDailyStream.length})</span>
-		</button>
-
-		<button
-			onclick={() => selectTab('v_video_details')}
-			class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl transition-all {activeTab ===
-			'v_video_details'
-				? 'bg-emerald-600/25 text-white border border-emerald-500/40 shadow-sm'
-				: 'text-gray-400 hover:text-white hover:bg-gray-800'}"
-		>
-			<Eye size={13} class="text-emerald-400" />
-			<span>Detalle Videos & ROI ({filteredVVideoDetails.length})</span>
-		</button>
-
-		<button
-			onclick={() => selectTab('v_recent_activity')}
-			class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl transition-all {activeTab ===
-			'v_recent_activity'
-				? 'bg-emerald-600/25 text-white border border-emerald-500/40 shadow-sm'
-				: 'text-gray-400 hover:text-white hover:bg-gray-800'}"
-		>
-			<Sparkles size={13} class="text-emerald-400" />
-			<span>Actividad Reciente ({filteredVActivity.length})</span>
-		</button>
-	</div>
-
-	<!-- Info Banner de la Vista Activa -->
-	<div class="rounded-xl border border-[#1F2937] bg-[#111827] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-		<div class="flex items-start gap-3">
-			<div class="mt-0.5 rounded-lg bg-indigo-500/10 border border-indigo-500/20 p-1.5 text-indigo-400">
-				<Info size={16} />
-			</div>
-			<div>
-				{#if activeTab === 'mv_creator_performance'}
-					<span class="font-bold text-white">mv_creator_performance_summary</span>
-					<p class="text-gray-400 mt-0.5">Vista Materializada con índice único en `creator_id`. Agrega streams y videos por cada creador.</p>
-				{:else if activeTab === 'mv_platform_performance'}
-					<span class="font-bold text-white">mv_platform_performance_summary</span>
-					<p class="text-gray-400 mt-0.5">Vista Materializada agregada por `(organization_id, platform)`. Compara rendimiento en vivo vs video.</p>
-				{:else if activeTab === 'mv_platform_category'}
-					<span class="font-bold text-white">mv_platform_category_stats</span>
-					<p class="text-gray-400 mt-0.5">Vista Materializada agregada por `(organization_id, platform, category_name)`.</p>
-				{:else if activeTab === 'mv_monthly_revenue'}
-					<span class="font-bold text-white">mv_monthly_revenue_summary</span>
-					<p class="text-gray-400 mt-0.5">Vista Materializada con rollup temporal mensual `(organization_id, period_year, period_month)`.</p>
-				{:else if activeTab === 'mv_content_type'}
-					<span class="font-bold text-white">mv_creator_content_type_metrics</span>
-					<p class="text-gray-400 mt-0.5">Métricas agregadas por tipo de publicación (Shorts, Standard, VODs, Clips).</p>
-				{:else if activeTab === 'v_creator_rankings'}
-					<span class="font-bold text-white">v_creator_overall_rankings</span>
-					<p class="text-gray-400 mt-0.5">Vista SQL con funciones de ventana DENSE_RANK() calculando posiciones de ingresos, CCV y horas.</p>
-				{:else if activeTab === 'v_daily_stream'}
-					<span class="font-bold text-white">v_daily_stream_analytics</span>
-					<p class="text-gray-400 mt-0.5">Vista SQL diaria que resume horas, CCV promedio, chat y revenue por día de transmisión.</p>
-				{:else if activeTab === 'v_video_details'}
-					<span class="font-bold text-white">v_video_publication_details</span>
-					<p class="text-gray-400 mt-0.5">Vista SQL relacional que calcula métricas calculadas de engagement, RPM y ROI financiero de cada publicación.</p>
-				{:else}
-					<span class="font-bold text-white">v_recent_channel_activity</span>
-					<p class="text-gray-400 mt-0.5">Vista SQL consolidada (UNION ALL) de streaming sessions, publicaciones de video y alertas del canal.</p>
-				{/if}
-			</div>
-		</div>
-
-		<div class="flex items-center gap-2 self-end sm:self-center shrink-0">
-			<Badge variant="indigo" size="sm">SOLO LECTURA</Badge>
-			{#if activeTab.startsWith('mv_')}
-				<Badge variant="success" size="sm">MATERIALIZED VIEW</Badge>
-			{:else}
-				<Badge variant="cyan" size="sm">SQL VIEW (SECURITY INVOKER)</Badge>
-			{/if}
-		</div>
-	</div>
 
 	<!-- TABLA DE DATOS SEGÚN PESTAÑA ACTIVA -->
 	{#if activeTab === 'mv_creator_performance'}

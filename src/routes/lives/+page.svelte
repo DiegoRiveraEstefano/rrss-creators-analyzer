@@ -10,6 +10,7 @@
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import AddLiveModal from '$lib/components/creators/AddLiveModal.svelte';
+	import EditLiveModal from '$lib/components/creators/EditLiveModal.svelte';
 	import {
 		FilterDrawer,
 		FilterTriggerButton,
@@ -33,7 +34,8 @@
 		Sparkles,
 		MessageSquare,
 		Gamepad2,
-		Layers
+		Layers,
+		Edit3
 	} from 'lucide-svelte';
 
 	const queryClient = useQueryClient();
@@ -45,6 +47,8 @@
 	let sessions = $derived(sessionsQuery.data || []);
 	let isLoading = $derived(sessionsQuery.isLoading);
 	let isAddModalOpen = $state(false);
+	let isEditModalOpen = $state(false);
+	let editingSession = $state<StreamingSession | null>(null);
 	let isFilterOpen = $state(false);
 
 	let filters = $state<LiveTableFilterState>({
@@ -146,8 +150,13 @@
 		});
 	});
 
-	function handleSessionAdded() {
+	function handleDataChanged() {
 		queryClient.invalidateQueries({ queryKey: sessionsQueryKeys.all });
+	}
+
+	function openEditModal(sessionItem: StreamingSession) {
+		editingSession = sessionItem;
+		isEditModalOpen = true;
 	}
 
 	// Métricas Reactivas para StatCards
@@ -236,6 +245,12 @@
 			align: 'right',
 			isMono: true,
 			sortable: true
+		},
+		{
+			key: 'id',
+			label: 'Acciones',
+			align: 'center',
+			sortable: false
 		}
 	];
 </script>
@@ -315,6 +330,21 @@
 	<span class="font-mono text-xs font-bold text-emerald-400">
 		{formatCurrency(row.total_earnings)}
 	</span>
+{/snippet}
+
+{#snippet actionsCell({ row }: { row: StreamingSession })}
+	<div class="flex items-center justify-center gap-1.5">
+		<Button
+			variant="secondary"
+			size="sm"
+			onclick={() => openEditModal(row)}
+			class="h-7 px-2.5 text-xs text-indigo-300 hover:text-white"
+			title="Editar sesión en vivo"
+		>
+			<Edit3 size={13} />
+			<span>Editar</span>
+		</Button>
+	</div>
 {/snippet}
 
 <svelte:head>
@@ -401,7 +431,8 @@
 				{ ...sessionColumns[6], render: chatCell },
 				{ ...sessionColumns[7], render: adsCell },
 				{ ...sessionColumns[8], render: subsCell },
-				{ ...sessionColumns[9], render: totalCell }
+				{ ...sessionColumns[9], render: totalCell },
+				{ ...sessionColumns[10], render: actionsCell }
 			]}
 			searchPlaceholder="Buscar por título, categoría o plataforma..."
 			searchKeys={['session_title', 'game_or_category', 'platform']}
@@ -415,7 +446,18 @@
 			organizationId={tenantStore.currentOrg.id}
 			creatorId={tenantStore.selectedCreatorId}
 			onClose={() => (isAddModalOpen = false)}
-			onAdded={handleSessionAdded}
+			onAdded={handleDataChanged}
+		/>
+
+		<EditLiveModal
+			isOpen={isEditModalOpen}
+			session={editingSession}
+			onClose={() => {
+				isEditModalOpen = false;
+				editingSession = null;
+			}}
+			onUpdated={handleDataChanged}
+			onDeleted={handleDataChanged}
 		/>
 	{/if}
 </div>

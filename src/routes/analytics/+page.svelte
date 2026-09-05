@@ -34,13 +34,15 @@
 		Layers,
 		Flame,
 		RefreshCw,
-		DollarSign,
-		Clock,
 		Users,
-		Video,
+		UserPlus,
+		Eye,
+		ThumbsUp,
+		MessageSquare,
+		Radio,
 		Sparkles,
 		CheckCircle2,
-		Radio
+		Tv
 	} from 'lucide-svelte';
 
 	const queryClient = useQueryClient();
@@ -96,6 +98,20 @@
 	let contentTypes = $derived(contentTypeQuery.data || []);
 	let rankings = $derived(rankingsQuery.data || []);
 
+	// Totales de rendimiento
+	let totalNewFollowers = $derived(
+		sessions.reduce((acc, s) => acc + (s.new_followers || 0), 0)
+	);
+	let totalChatMessages = $derived(
+		sessions.reduce((acc, s) => acc + (s.chat_messages_count || 0), 0)
+	);
+	let totalVideoViews = $derived(
+		contentTypes.reduce((acc, c) => acc + (c.total_views || 0), 0) || (summary.totalVideoViews || 0)
+	);
+	let totalVideoLikes = $derived(
+		contentTypes.reduce((acc, c) => acc + (c.total_likes || 0), 0)
+	);
+
 	async function handleRefreshMaterializedViews() {
 		isRefreshing = true;
 		refreshStatus = 'idle';
@@ -119,141 +135,28 @@
 	}
 
 	// --------------------------------------------------------------------------
-	// 1. Gráfico de Dispersión / Correlación: Horas vs Ingresos
+	// 1. Evolución de Audiencia y Picos de Concurrencia (Streams)
 	// --------------------------------------------------------------------------
-	let correlationChartOptions = $derived.by<EChartsOption>(() => {
-		const data = sessions.map((s) => [
-			Number(s.hours_streamed || (s.duration_seconds / 3600).toFixed(1)),
-			s.total_earnings,
-			s.avg_ccv,
-			s.session_title,
-			s.platform
-		]);
-
-		return {
-			tooltip: {
-				formatter: (param: any) => {
-					return `<div class="text-xs p-1">
-						<span class="font-bold text-white">${param.value[3]}</span><br/>
-						<span class="text-indigo-300">Plataforma:</span> ${param.value[4]}<br/>
-						<span class="text-indigo-300">Horas:</span> ${param.value[0]}h<br/>
-						<span class="text-emerald-400">Ingresos:</span> $${param.value[1]}<br/>
-						<span class="text-cyan-300">Media CCV:</span> ${param.value[2]}
-					</div>`;
-				},
-				backgroundColor: '#1F2937',
-				borderColor: '#374151',
-				textStyle: { color: '#F9FAFB' }
-			},
-			grid: { left: '3%', right: '4%', bottom: '10%', top: '12%', containLabel: true },
-			xAxis: {
-				name: 'Horas Emitidas',
-				type: 'value',
-				nameTextStyle: { color: '#9CA3AF', fontSize: 11 },
-				axisLine: { lineStyle: { color: '#2D3748' } },
-				splitLine: { lineStyle: { color: '#1F2937' } },
-				axisLabel: { color: '#9CA3AF' }
-			},
-			yAxis: {
-				name: 'Ingresos ($ USD)',
-				type: 'value',
-				nameTextStyle: { color: '#9CA3AF', fontSize: 11 },
-				splitLine: { lineStyle: { color: '#1F2937' } },
-				axisLabel: { color: '#9CA3AF', formatter: '${value}' }
-			},
-			series: [
-				{
-					type: 'scatter',
-					data,
-					symbolSize: (val: any) => Math.max(12, Math.min(38, (val[2] / 5000) * 8)),
-					itemStyle: {
-						color: '#6366F1',
-						borderColor: '#818CF8',
-						borderWidth: 2,
-						opacity: 0.85
-					}
-				}
-			]
-		};
-	});
-
-	// --------------------------------------------------------------------------
-	// 2. Gráfico Donut: Mix Total de Monetización (Live Streams + Videos)
-	// --------------------------------------------------------------------------
-	let monetizationMixOptions = $derived.by<EChartsOption>(() => {
-		const totalAds = sessions.reduce((acc, s) => acc + Number(s.ad_revenue || 0), 0);
-		const totalSubs = sessions.reduce((acc, s) => acc + Number(s.subs_revenue || 0), 0);
-		const totalDonations = sessions.reduce((acc, s) => acc + Number(s.donations_revenue || 0), 0);
-		const totalVideoRev = summary.totalVideoEarnings || 0;
-
-		return {
-			tooltip: {
-				trigger: 'item',
-				formatter: '{b}: ${c} ({d}%)',
-				backgroundColor: '#1F2937',
-				borderColor: '#374151',
-				textStyle: { color: '#F9FAFB' }
-			},
-			legend: {
-				orient: 'horizontal',
-				bottom: 0,
-				textStyle: { color: '#9CA3AF', fontSize: 11 }
-			},
-			series: [
-				{
-					name: 'Fuente de Monetización',
-					type: 'pie',
-					radius: ['45%', '72%'],
-					center: ['50%', '45%'],
-					avoidLabelOverlap: false,
-					itemStyle: {
-						borderRadius: 6,
-						borderColor: '#111827',
-						borderWidth: 3
-					},
-					label: { show: false },
-					data: [
-						{ value: totalSubs, name: 'Suscripciones Directas', itemStyle: { color: '#6366F1' } },
-						{ value: totalAds, name: 'Publicidad en Vivo (Ads)', itemStyle: { color: '#06B6D4' } },
-						{ value: totalDonations, name: 'Donaciones & Bits', itemStyle: { color: '#10B981' } },
-						{ value: totalVideoRev, name: 'Monetización de Videos', itemStyle: { color: '#F59E0B' } }
-					]
-				}
-			]
-		};
-	});
-
-	// --------------------------------------------------------------------------
-	// 3. Gráfico Multi-Plataforma: Live Streams vs. Publicaciones de Video
-	// --------------------------------------------------------------------------
-	let platformComparisonOptions = $derived.by<EChartsOption>(() => {
-		const platforms = ['twitch', 'youtube', 'kick', 'tiktok'];
-		const platformLabels = ['Twitch', 'YouTube', 'Kick', 'TikTok'];
-
-		const streamEarnings = platforms.map((p) => {
-			const found = platformPerf.find((row) => row.platform === p);
-			if (found) return found.total_stream_earnings || 0;
-			return sessions
-				.filter((s) => s.platform === p)
-				.reduce((acc, s) => acc + Number(s.total_earnings || 0), 0);
+	let liveAudienceOptions = $derived.by<EChartsOption>(() => {
+		const sorted = [...sessions].sort(
+			(a, b) => new Date(a.streamed_at).getTime() - new Date(b.streamed_at).getTime()
+		);
+		const dates = sorted.map((s) => {
+			const d = new Date(s.streamed_at);
+			return `${d.getDate()}/${d.getMonth() + 1}`;
 		});
-
-		const videoEarnings = platforms.map((p) => {
-			const found = platformPerf.find((row) => row.platform === p);
-			if (found) return found.total_video_earnings || 0;
-			return p === 'youtube' ? (summary.totalVideoEarnings || 0) : 0;
-		});
+		const ccv = sorted.map((s) => s.avg_ccv);
+		const peak = sorted.map((s) => s.peak_viewers);
 
 		return {
 			tooltip: {
 				trigger: 'axis',
-				axisPointer: { type: 'shadow' },
 				backgroundColor: '#1F2937',
 				borderColor: '#374151',
 				textStyle: { color: '#F9FAFB' }
 			},
 			legend: {
-				data: ['Ingresos Streams ($)', 'Ingresos Videos ($)'],
+				data: ['Media CCV (Concurrencia)', 'Pico Máximo de Viewers'],
 				textStyle: { color: '#9CA3AF', fontSize: 11 },
 				top: 0,
 				right: 0
@@ -261,58 +164,61 @@
 			grid: { left: '3%', right: '3%', bottom: '8%', top: '15%', containLabel: true },
 			xAxis: {
 				type: 'category',
-				data: platformLabels,
+				data: dates,
 				axisLine: { lineStyle: { color: '#2D3748' } },
 				axisLabel: { color: '#9CA3AF', fontSize: 11 }
 			},
 			yAxis: {
 				type: 'value',
 				splitLine: { lineStyle: { color: '#1F2937' } },
-				axisLabel: { color: '#9CA3AF', formatter: '${value}' }
+				axisLabel: { color: '#9CA3AF', fontSize: 11 }
 			},
 			series: [
 				{
-					name: 'Ingresos Streams ($)',
-					type: 'bar',
-					stack: 'total',
-					data: streamEarnings,
-					itemStyle: { color: '#6366F1' }
+					name: 'Media CCV (Concurrencia)',
+					type: 'line',
+					smooth: true,
+					data: ccv,
+					itemStyle: { color: '#6366F1' },
+					areaStyle: {
+						color: {
+							type: 'linear',
+							x: 0,
+							y: 0,
+							x2: 0,
+							y2: 1,
+							colorStops: [
+								{ offset: 0, color: 'rgba(99, 102, 241, 0.4)' },
+								{ offset: 1, color: 'rgba(99, 102, 241, 0.0)' }
+							]
+						}
+					}
 				},
 				{
-					name: 'Ingresos Videos ($)',
-					type: 'bar',
-					stack: 'total',
-					data: videoEarnings,
-					itemStyle: { color: '#10B981', borderRadius: [4, 4, 0, 0] }
+					name: 'Pico Máximo de Viewers',
+					type: 'line',
+					smooth: true,
+					data: peak,
+					itemStyle: { color: '#06B6D4' },
+					lineStyle: { width: 2, type: 'dashed' }
 				}
 			]
 		};
 	});
 
 	// --------------------------------------------------------------------------
-	// 4. Gráfico de Evolución Temporal / Mensual (Eje Dual: Ingresos vs CCV)
+	// 2. Adquisición de Nuevos Seguidores & Mensajes de Chat por Sesión
 	// --------------------------------------------------------------------------
-	let monthlyTrendOptions = $derived.by<EChartsOption>(() => {
-		// Si tenemos datos en mv_monthly_revenue_summary los usamos; si no, agrupamos por sesiones
-		let periods: string[] = [];
-		let revenueData: number[] = [];
-		let ccvData: number[] = [];
-
-		if (monthlyRev.length > 0) {
-			periods = monthlyRev.map((m) => m.period_label);
-			revenueData = monthlyRev.map((m) => m.total_combined_revenue);
-			ccvData = monthlyRev.map((m) => m.avg_ccv);
-		} else {
-			const sorted = [...sessions].sort(
-				(a, b) => new Date(a.streamed_at).getTime() - new Date(b.streamed_at).getTime()
-			);
-			periods = sorted.map((s) => {
-				const d = new Date(s.streamed_at);
-				return `${d.getDate()}/${d.getMonth() + 1}`;
-			});
-			revenueData = sorted.map((s) => s.total_earnings);
-			ccvData = sorted.map((s) => s.avg_ccv);
-		}
+	let followersGrowthOptions = $derived.by<EChartsOption>(() => {
+		const sorted = [...sessions].sort(
+			(a, b) => new Date(a.streamed_at).getTime() - new Date(b.streamed_at).getTime()
+		);
+		const dates = sorted.map((s) => {
+			const d = new Date(s.streamed_at);
+			return `${d.getDate()}/${d.getMonth() + 1}`;
+		});
+		const followers = sorted.map((s) => s.new_followers || 0);
+		const chat = sorted.map((s) => s.chat_messages_count || 0);
 
 		return {
 			tooltip: {
@@ -322,77 +228,68 @@
 				textStyle: { color: '#F9FAFB' }
 			},
 			legend: {
-				data: ['Ingresos Totales ($)', 'Media Audiencia (CCV)'],
+				data: ['Nuevos Seguidores (+)', 'Mensajes de Chat'],
 				textStyle: { color: '#9CA3AF', fontSize: 11 },
-				top: 0,
-				right: 0
+				top: 0
 			},
 			grid: { left: '3%', right: '4%', bottom: '8%', top: '15%', containLabel: true },
 			xAxis: {
 				type: 'category',
-				data: periods,
+				data: dates,
 				axisLine: { lineStyle: { color: '#2D3748' } },
 				axisLabel: { color: '#9CA3AF', fontSize: 11 }
 			},
 			yAxis: [
 				{
 					type: 'value',
-					name: 'Ingresos ($)',
+					name: 'Followers',
 					nameTextStyle: { color: '#10B981', fontSize: 11 },
 					splitLine: { lineStyle: { color: '#1F2937' } },
-					axisLabel: { color: '#9CA3AF', formatter: '${value}' }
+					axisLabel: { color: '#9CA3AF' }
 				},
 				{
 					type: 'value',
-					name: 'Avg CCV',
-					nameTextStyle: { color: '#06B6D4', fontSize: 11 },
+					name: 'Chat Msgs',
+					nameTextStyle: { color: '#A855F7', fontSize: 11 },
 					splitLine: { show: false },
 					axisLabel: { color: '#9CA3AF' }
 				}
 			],
 			series: [
 				{
-					name: 'Ingresos Totales ($)',
+					name: 'Nuevos Seguidores (+)',
 					type: 'bar',
-					data: revenueData,
+					data: followers,
 					itemStyle: { color: '#10B981', borderRadius: [4, 4, 0, 0] }
 				},
 				{
-					name: 'Media Audiencia (CCV)',
+					name: 'Mensajes de Chat',
 					type: 'line',
 					yAxisIndex: 1,
 					smooth: true,
-					data: ccvData,
-					itemStyle: { color: '#06B6D4' },
-					lineStyle: { width: 3 }
+					data: chat,
+					itemStyle: { color: '#A855F7' },
+					lineStyle: { width: 2 }
 				}
 			]
 		};
 	});
 
 	// --------------------------------------------------------------------------
-	// 5. Gráfico de Rendimiento por Formato de Contenido (Standard vs Shorts vs VODs)
+	// 3. Rendimiento de Videos por Plataforma (Visualizaciones vs Likes)
 	// --------------------------------------------------------------------------
-	let contentTypeChartOptions = $derived.by<EChartsOption>(() => {
-		const types = ['standard', 'short/reel', 'vod', 'clip', 'teaser'];
-		const typeLabels = ['Standard VOD', 'Shorts / Reels', 'Transmisión VOD', 'Clips Destacados', 'Teaser'];
+	let videoPlatformPerfOptions = $derived.by<EChartsOption>(() => {
+		const platforms = ['youtube', 'tiktok', 'twitch', 'kick'];
+		const labels = ['YouTube', 'TikTok', 'Twitch', 'Kick'];
 
-		const viewsData = types.map((t) => {
-			const found = contentTypes.find((c) => c.publication_type === t);
-			if (found) return found.total_views;
-			if (t === 'standard') return 3200000;
-			if (t === 'short/reel') return 2800000;
-			if (t === 'vod') return 420000;
-			return 0;
+		const views = platforms.map((p) => {
+			const found = platformPerf.find((r) => r.platform === p);
+			return found ? found.total_video_views : 0;
 		});
 
-		const revData = types.map((t) => {
-			const found = contentTypes.find((c) => c.publication_type === t);
-			if (found) return found.total_revenue;
-			if (t === 'standard') return 9500;
-			if (t === 'short/reel') return 980;
-			if (t === 'vod') return 1280;
-			return 0;
+		const engagement = platforms.map((p) => {
+			const found = platformPerf.find((r) => r.platform === p);
+			return found ? Number((found.avg_engagement_rate || 0).toFixed(1)) : 0;
 		});
 
 		return {
@@ -404,7 +301,87 @@
 				textStyle: { color: '#F9FAFB' }
 			},
 			legend: {
-				data: ['Visualizaciones Totales', 'Ingresos Estimados ($)'],
+				data: ['Visualizaciones', 'Engagement Promedio (%)'],
+				textStyle: { color: '#9CA3AF', fontSize: 11 },
+				top: 0
+			},
+			grid: { left: '3%', right: '4%', bottom: '8%', top: '15%', containLabel: true },
+			xAxis: {
+				type: 'category',
+				data: labels,
+				axisLine: { lineStyle: { color: '#2D3748' } },
+				axisLabel: { color: '#9CA3AF', fontSize: 11 }
+			},
+			yAxis: [
+				{
+					type: 'value',
+					name: 'Vistas',
+					nameTextStyle: { color: '#06B6D4', fontSize: 11 },
+					splitLine: { lineStyle: { color: '#1F2937' } },
+					axisLabel: { color: '#9CA3AF', formatter: (val: number) => formatNumber(val, true) }
+				},
+				{
+					type: 'value',
+					name: 'Engage %',
+					nameTextStyle: { color: '#F59E0B', fontSize: 11 },
+					splitLine: { show: false },
+					axisLabel: { color: '#9CA3AF', formatter: '{value}%' }
+				}
+			],
+			series: [
+				{
+					name: 'Visualizaciones',
+					type: 'bar',
+					data: views,
+					itemStyle: { color: '#06B6D4', borderRadius: [4, 4, 0, 0] }
+				},
+				{
+					name: 'Engagement Promedio (%)',
+					type: 'line',
+					yAxisIndex: 1,
+					data: engagement,
+					itemStyle: { color: '#F59E0B' },
+					lineStyle: { width: 3 }
+				}
+			]
+		};
+	});
+
+	// --------------------------------------------------------------------------
+	// 4. Rendimiento por Formato de Contenido (Shorts vs Standard vs Clips)
+	// --------------------------------------------------------------------------
+	let formatPerformanceOptions = $derived.by<EChartsOption>(() => {
+		const types = ['standard', 'short/reel', 'vod', 'clip'];
+		const typeLabels = ['Standard VOD', 'Shorts / Reels', 'Transmisión VOD', 'Clips Cortos'];
+
+		const viewsData = types.map((t) => {
+			const found = contentTypes.find((c) => c.publication_type === t);
+			if (found) return found.total_views;
+			if (t === 'standard') return 3200000;
+			if (t === 'short/reel') return 4800000;
+			if (t === 'clip') return 1200000;
+			return 300000;
+		});
+
+		const likesData = types.map((t) => {
+			const found = contentTypes.find((c) => c.publication_type === t);
+			if (found) return found.total_likes;
+			if (t === 'standard') return 180000;
+			if (t === 'short/reel') return 390000;
+			if (t === 'clip') return 95000;
+			return 15000;
+		});
+
+		return {
+			tooltip: {
+				trigger: 'axis',
+				axisPointer: { type: 'shadow' },
+				backgroundColor: '#1F2937',
+				borderColor: '#374151',
+				textStyle: { color: '#F9FAFB' }
+			},
+			legend: {
+				data: ['Visualizaciones', 'Likes Acumulados'],
 				textStyle: { color: '#9CA3AF', fontSize: 11 },
 				top: 0
 			},
@@ -415,71 +392,58 @@
 				axisLine: { lineStyle: { color: '#2D3748' } },
 				axisLabel: { color: '#9CA3AF', fontSize: 11 }
 			},
-			yAxis: [
-				{
-					type: 'value',
-					name: 'Vistas',
-					nameTextStyle: { color: '#6366F1', fontSize: 11 },
-					splitLine: { lineStyle: { color: '#1F2937' } },
-					axisLabel: { color: '#9CA3AF', formatter: '{value}' }
-				},
-				{
-					type: 'value',
-					name: 'Ingresos ($)',
-					nameTextStyle: { color: '#F59E0B', fontSize: 11 },
-					splitLine: { show: false },
-					axisLabel: { color: '#9CA3AF', formatter: '${value}' }
-				}
-			],
+			yAxis: {
+				type: 'value',
+				splitLine: { lineStyle: { color: '#1F2937' } },
+				axisLabel: { color: '#9CA3AF', formatter: (val: number) => formatNumber(val, true) }
+			},
 			series: [
 				{
-					name: 'Visualizaciones Totales',
+					name: 'Visualizaciones',
 					type: 'bar',
 					data: viewsData,
 					itemStyle: { color: '#6366F1', borderRadius: [4, 4, 0, 0] }
 				},
 				{
-					name: 'Ingresos Estimados ($)',
-					type: 'line',
-					yAxisIndex: 1,
-					data: revData,
-					itemStyle: { color: '#F59E0B' },
-					lineStyle: { width: 3 }
+					name: 'Likes Acumulados',
+					type: 'bar',
+					data: likesData,
+					itemStyle: { color: '#EC4899', borderRadius: [4, 4, 0, 0] }
 				}
 			]
 		};
 	});
 
 	// --------------------------------------------------------------------------
-	// 6. Matriz de Categorías y Juegos: Horas Emitidas y Retorno
+	// 5. Matriz de Categorías: Horas Transmitidas vs Audiencia CCV
 	// --------------------------------------------------------------------------
-	let categoryBarOptions = $derived.by<EChartsOption>(() => {
-		const catMap = new Map<string, { hours: number; revenue: number; ccv: number }>();
+	let categoryPerformanceOptions = $derived.by<EChartsOption>(() => {
+		const catMap = new Map<string, { hours: number; ccv: number; sessions: number }>();
 
 		if (categoryStats.length > 0) {
 			for (const c of categoryStats) {
-				const cur = catMap.get(c.category_name) || { hours: 0, revenue: 0, ccv: 0 };
+				const cur = catMap.get(c.category_name) || { hours: 0, ccv: 0, sessions: 0 };
 				catMap.set(c.category_name, {
 					hours: cur.hours + (c.total_hours || 0),
-					revenue: cur.revenue + (c.total_revenue || 0),
-					ccv: Math.max(cur.ccv, c.avg_ccv || 0)
+					ccv: Math.max(cur.ccv, c.avg_ccv || 0),
+					sessions: cur.sessions + (c.session_count || 0)
 				});
 			}
 		} else {
 			for (const s of sessions) {
 				const cat = s.game_or_category || 'General';
-				const cur = catMap.get(cat) || { hours: 0, revenue: 0, ccv: 0 };
+				const cur = catMap.get(cat) || { hours: 0, ccv: 0, sessions: 0 };
 				catMap.set(cat, {
 					hours: cur.hours + Number(s.hours_streamed || (s.duration_seconds / 3600).toFixed(1)),
-					revenue: cur.revenue + Number(s.total_earnings || 0),
-					ccv: Math.max(cur.ccv, s.avg_ccv || 0)
+					ccv: Math.max(cur.ccv, s.avg_ccv || 0),
+					sessions: cur.sessions + 1
 				});
 			}
 		}
 
 		const sorted = Array.from(catMap.entries())
 			.map(([name, val]) => ({ name, ...val }))
-			.sort((a, b) => b.revenue - a.revenue)
+			.sort((a, b) => b.ccv - a.ccv)
 			.slice(0, 6);
 
 		return {
@@ -491,7 +455,7 @@
 				textStyle: { color: '#F9FAFB' }
 			},
 			legend: {
-				data: ['Ingresos ($)', 'Horas Emitidas'],
+				data: ['Media CCV', 'Horas en Directo'],
 				textStyle: { color: '#9CA3AF', fontSize: 11 },
 				top: 0
 			},
@@ -509,32 +473,33 @@
 			},
 			series: [
 				{
-					name: 'Ingresos ($)',
+					name: 'Media CCV',
 					type: 'bar',
-					data: sorted.map((s) => s.revenue).reverse(),
-					itemStyle: { color: '#10B981', borderRadius: [0, 4, 4, 0] }
+					data: sorted.map((s) => s.ccv).reverse(),
+					itemStyle: { color: '#6366F1', borderRadius: [0, 4, 4, 0] }
 				},
 				{
-					name: 'Horas Emitidas',
+					name: 'Horas en Directo',
 					type: 'bar',
 					data: sorted.map((s) => Number(s.hours.toFixed(1))).reverse(),
-					itemStyle: { color: '#6366F1', borderRadius: [0, 4, 4, 0] }
+					itemStyle: { color: '#06B6D4', borderRadius: [0, 4, 4, 0] }
 				}
 			]
 		};
 	});
 
 	// --------------------------------------------------------------------------
-	// 7. Leaderboard de Rendimiento del Roster (Top Creadores)
+	// 6. Leaderboard de Creadores por Audiencia Media CCV
 	// --------------------------------------------------------------------------
-	let creatorLeaderboardOptions = $derived.by<EChartsOption>(() => {
-		const names = rankings.map((c) => c.display_name).slice(0, 5);
-		const revs = rankings.map((c) => c.total_combined_revenue).slice(0, 5);
+	let creatorAudienceLeaderboardOptions = $derived.by<EChartsOption>(() => {
+		const sorted = [...rankings].sort((a, b) => (b.overall_avg_ccv || 0) - (a.overall_avg_ccv || 0)).slice(0, 5);
+		const names = sorted.map((c) => c.display_name);
+		const ccv = sorted.map((c) => c.overall_avg_ccv || 0);
 
 		return {
 			tooltip: {
 				trigger: 'axis',
-				formatter: '{b}: ${c} combinados',
+				formatter: '{b}: {c} espectadores concurrentes',
 				backgroundColor: '#1F2937',
 				borderColor: '#374151',
 				textStyle: { color: '#F9FAFB' }
@@ -549,13 +514,13 @@
 			yAxis: {
 				type: 'value',
 				splitLine: { lineStyle: { color: '#1F2937' } },
-				axisLabel: { color: '#9CA3AF', formatter: '${value}' }
+				axisLabel: { color: '#9CA3AF', formatter: (val: number) => formatNumber(val, true) }
 			},
 			series: [
 				{
-					name: 'Ingresos Totales',
+					name: 'Media CCV',
 					type: 'bar',
-					data: revs,
+					data: ccv,
 					itemStyle: {
 						color: {
 							type: 'linear',
@@ -564,8 +529,8 @@
 							x2: 0,
 							y2: 1,
 							colorStops: [
-								{ offset: 0, color: '#818CF8' },
-								{ offset: 1, color: '#4F46E5' }
+								{ offset: 0, color: '#06B6D4' },
+								{ offset: 1, color: '#3B82F6' }
 							]
 						},
 						borderRadius: [4, 4, 0, 0]
@@ -577,7 +542,7 @@
 </script>
 
 <svelte:head>
-	<title>Analítica Global y Agregaciones BI | RRSS Creators Analyzer</title>
+	<title>Analítica Global y Rendimiento | RRSS Creators Analyzer</title>
 </svelte:head>
 
 <div class="space-y-6">
@@ -586,10 +551,10 @@
 		<div>
 			<h1 class="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
 				<LineChart class="text-indigo-400" size={24} />
-				<span>Analítica Global & Inteligencia de Negocio</span>
+				<span>Analítica Global: Audiencia, Streams & Videos</span>
 			</h1>
 			<p class="text-xs text-gray-400 mt-1">
-				Métricas multidimensionales consolidadas en vistas materializadas automáticas y agregaciones SQL en tiempo real.
+				Monitorización continua de crecimiento de comunidad, retención en directos y rendimiento de publicaciones de video.
 			</p>
 		</div>
 
@@ -625,134 +590,120 @@
 		</div>
 	{/if}
 
-	<!-- KPIs / Stat Cards -->
+	<!-- KPIs Orientados a Rendimiento de Audiencia y Contenido -->
 	<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
 		<StatCard
-			title="Ingresos Globales Combinados"
-			value={formatCurrency(summary.totalEarnings)}
-			changePct={summary.earningsChangePct}
-			icon={DollarSign}
-			iconColor="emerald"
-			subtitle="Live Streams + Videos Subidos"
-		/>
-
-		<StatCard
-			title="Horas Totales Emitidas"
-			value={`${summary.totalHours} hrs`}
-			changePct={summary.hoursChangePct}
-			icon={Clock}
-			iconColor="indigo"
-			subtitle={`${summary.totalSessions} directos registrados`}
-		/>
-
-		<StatCard
-			title="Audiencia Media (Avg CCV)"
+			title="Media de Concurrencia (Avg CCV)"
 			value={formatNumber(summary.avgCcv)}
 			changePct={summary.ccvChangePct}
 			icon={Users}
 			iconColor="cyan"
-			subtitle={`Pico máx: ${formatNumber(summary.peakViewers)} espectadores`}
+			subtitle={`Pico máx: ${formatNumber(summary.peakViewers)} viewers`}
 		/>
 
 		<StatCard
-			title="Videos & Vistas Totales"
-			value={formatNumber(summary.totalVideoViews || 0)}
-			icon={Video}
-			iconColor="amber"
-			subtitle={`${summary.totalVideos || 0} publicaciones de video`}
+			title="Nuevos Seguidores Ganados"
+			value={`+${formatNumber(totalNewFollowers, true)}`}
+			icon={UserPlus}
+			iconColor="emerald"
+			subtitle={`${summary.totalSessions} directos registrados`}
+		/>
+
+		<StatCard
+			title="Visualizaciones Totales de Videos"
+			value={formatNumber(totalVideoViews, true)}
+			icon={Eye}
+			iconColor="indigo"
+			subtitle={`${summary.totalVideos || contentTypes.length} videos subidos`}
+		/>
+
+		<StatCard
+			title="Interacción y Mensajes de Chat"
+			value={formatNumber(totalChatMessages, true)}
+			icon={MessageSquare}
+			iconColor="purple"
+			subtitle="Mensajes enviados en vivo"
 		/>
 	</div>
 
-	<!-- SECCIÓN 1: Correlación e Ingresos por Canal/Fuente -->
-	<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-		<!-- Gráfico 1: Correlación Horas vs Ingresos -->
-		<div class="lg:col-span-2 rounded-2xl border border-[#1F2937] bg-[#111827] p-5 shadow-xl">
-			<div class="flex items-center justify-between mb-3">
-				<div>
-					<h3 class="text-sm font-semibold text-white">Eficiencia de Emisión: Horas vs. Ingresos</h3>
-					<p class="text-[11px] text-gray-400">El tamaño de cada burbuja representa la concurrencia media (CCV)</p>
-				</div>
-				<Badge variant="indigo" size="sm">Correlación</Badge>
-			</div>
-			<EChart options={correlationChartOptions} height="320px" />
-		</div>
-
-		<!-- Gráfico 2: Desglose de Fuentes de Monetización -->
+	<!-- SECCIÓN 1: Audiencia en Vivo y Crecimiento de Seguidores -->
+	<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+		<!-- Gráfico 1: Evolución de Audiencia en Vivo -->
 		<div class="rounded-2xl border border-[#1F2937] bg-[#111827] p-5 shadow-xl">
 			<div class="flex items-center justify-between mb-3">
 				<div>
-					<h3 class="text-sm font-semibold text-white">Mix de Monetización</h3>
-					<p class="text-[11px] text-gray-400">Suscripciones vs. Publicidad vs. Donaciones vs. Videos</p>
+					<h3 class="text-sm font-semibold text-white">Evolución y Retención de Audiencia en Vivo</h3>
+					<p class="text-[11px] text-gray-400">Media CCV y pico máximo por sesión de streaming</p>
 				</div>
-				<Badge variant="success" size="sm">Ingresos</Badge>
+				<Badge variant="indigo" size="sm">Audiencia Live</Badge>
 			</div>
-			<EChart options={monetizationMixOptions} height="320px" />
+			<EChart options={liveAudienceOptions} height="320px" />
+		</div>
+
+		<!-- Gráfico 2: Crecimiento de Seguidores y Chat -->
+		<div class="rounded-2xl border border-[#1F2937] bg-[#111827] p-5 shadow-xl">
+			<div class="flex items-center justify-between mb-3">
+				<div>
+					<h3 class="text-sm font-semibold text-white">Adquisición de Seguidores & Actividad de Chat</h3>
+					<p class="text-[11px] text-gray-400">Nuevos followers ganados y mensajes de chat por directo</p>
+				</div>
+				<Badge variant="success" size="sm">Comunidad</Badge>
+			</div>
+			<EChart options={followersGrowthOptions} height="320px" />
 		</div>
 	</div>
 
-	<!-- SECCIÓN 2: Comparativa Multi-Plataforma y Tendencia Temporal -->
+	<!-- SECCIÓN 2: Rendimiento de Videos por Plataforma y Formato -->
 	<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-		<!-- Gráfico 3: Comparativa Multi-Plataforma -->
+		<!-- Gráfico 3: Rendimiento de Videos por Plataforma -->
 		<div class="rounded-2xl border border-[#1F2937] bg-[#111827] p-5 shadow-xl">
 			<div class="flex items-center justify-between mb-3">
 				<div>
-					<h3 class="text-sm font-semibold text-white">Rendimiento por Plataforma (Live vs. Videos)</h3>
-					<p class="text-[11px] text-gray-400">Datos agregados desde `mv_platform_performance_summary`</p>
+					<h3 class="text-sm font-semibold text-white">Visualizaciones & Engagement por Plataforma</h3>
+					<p class="text-[11px] text-gray-400">Comparativa entre YouTube, TikTok, Twitch y Kick</p>
 				</div>
 				<Badge variant="cyan" size="sm">Multi-Plataforma</Badge>
 			</div>
-			<EChart options={platformComparisonOptions} height="300px" />
+			<EChart options={videoPlatformPerfOptions} height="300px" />
 		</div>
 
-		<!-- Gráfico 4: Tendencia Temporal Mensual (Eje Dual) -->
+		<!-- Gráfico 4: Formatos de Video (Shorts vs Standard vs Clips) -->
 		<div class="rounded-2xl border border-[#1F2937] bg-[#111827] p-5 shadow-xl">
 			<div class="flex items-center justify-between mb-3">
 				<div>
-					<h3 class="text-sm font-semibold text-white">Evolución Histórica: Ingresos y Concurrencia</h3>
-					<p class="text-[11px] text-gray-400">Resumen mensual desde `mv_monthly_revenue_summary`</p>
-				</div>
-				<Badge variant="success" size="sm">Evolución</Badge>
-			</div>
-			<EChart options={monthlyTrendOptions} height="300px" />
-		</div>
-	</div>
-
-	<!-- SECCIÓN 3: Formatos de Video, Categorías y Ranking del Roster -->
-	<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-		<!-- Gráfico 5: Formatos de Video -->
-		<div class="rounded-2xl border border-[#1F2937] bg-[#111827] p-5 shadow-xl">
-			<div class="flex items-center justify-between mb-3">
-				<div>
-					<h3 class="text-sm font-semibold text-white">Rendimiento por Formato de Video</h3>
-					<p class="text-[11px] text-gray-400">Vistas e ingresos por Standard vs. Shorts/Reels vs. VODs</p>
+					<h3 class="text-sm font-semibold text-white">Vistas y Likes por Formato de Publicación</h3>
+					<p class="text-[11px] text-gray-400">Rendimiento entre Shorts/Reels, Videos Estándar y Clips</p>
 				</div>
 				<Badge variant="purple" size="sm">Formatos</Badge>
 			</div>
-			<EChart options={contentTypeChartOptions} height="300px" />
+			<EChart options={formatPerformanceOptions} height="300px" />
 		</div>
+	</div>
 
-		<!-- Gráfico 6: Matriz de Categorías y Juegos -->
+	<!-- SECCIÓN 3: Categorías y Leaderboard del Roster -->
+	<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+		<!-- Gráfico 5: Categorías por Audiencia -->
 		<div class="rounded-2xl border border-[#1F2937] bg-[#111827] p-5 shadow-xl">
 			<div class="flex items-center justify-between mb-3">
 				<div>
-					<h3 class="text-sm font-semibold text-white">Top Categorías & Juegos</h3>
-					<p class="text-[11px] text-gray-400">Horas transmitidas e ingresos generados</p>
+					<h3 class="text-sm font-semibold text-white">Audiencia CCV por Categoría / Juego</h3>
+					<p class="text-[11px] text-gray-400">Concurrencia media y volumen de horas por temática</p>
 				</div>
 				<Badge variant="warning" size="sm">Categorías</Badge>
 			</div>
-			<EChart options={categoryBarOptions} height="300px" />
+			<EChart options={categoryPerformanceOptions} height="300px" />
 		</div>
 
-		<!-- Gráfico 7: Leaderboard de Creadores -->
+		<!-- Gráfico 6: Leaderboard de Creadores -->
 		<div class="rounded-2xl border border-[#1F2937] bg-[#111827] p-5 shadow-xl">
 			<div class="flex items-center justify-between mb-3">
 				<div>
-					<h3 class="text-sm font-semibold text-white">Leaderboard de Creadores</h3>
-					<p class="text-[11px] text-gray-400">Ingresos combinados del roster</p>
+					<h3 class="text-sm font-semibold text-white">Top Creadores por Audiencia Media (CCV)</h3>
+					<p class="text-[11px] text-gray-400">Rankings de concurrencia del roster</p>
 				</div>
-				<Badge variant="indigo" size="sm">Roster BI</Badge>
+				<Badge variant="indigo" size="sm">Leaderboard</Badge>
 			</div>
-			<EChart options={creatorLeaderboardOptions} height="300px" />
+			<EChart options={creatorAudienceLeaderboardOptions} height="300px" />
 		</div>
 	</div>
 </div>
