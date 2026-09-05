@@ -16,6 +16,7 @@
 	const navItems = [
 		{ href: '/', label: 'Resumen Ejecutivo', icon: LayoutDashboard },
 		{ href: '/roster', label: 'Roster de Creadores', icon: Users },
+		{ href: '/lives', label: 'Sesiones en Vivo (Lives)', icon: Radio },
 		{ href: '/videos', label: 'Videos Subidos', icon: Video },
 		{ href: '/raw-data', label: 'Datos Crudos (Tablas)', icon: Database },
 		{ href: '/import', label: 'Importador CSV / Excel', icon: FileSpreadsheet, badge: 'Smart' },

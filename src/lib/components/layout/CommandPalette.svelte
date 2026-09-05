@@ -5,6 +5,7 @@
 		Search,
 		LayoutDashboard,
 		Users,
+		Radio,
 		Video,
 		UploadCloud,
 		TriangleAlert,
@@ -55,6 +56,14 @@
 			category: 'Navegación',
 			icon: Users,
 			action: () => goto('/roster')
+		},
+		{
+			id: 'nav-lives',
+			title: 'Sesiones en Vivo (Lives)',
+			subtitle: 'Historial y métricas de transmisiones en directo',
+			category: 'Navegación',
+			icon: Radio,
+			action: () => goto('/lives')
 		},
 		{
 			id: 'nav-videos',
