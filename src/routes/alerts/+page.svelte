@@ -16,33 +16,75 @@
 		ShieldCheck
 	} from 'lucide-svelte';
 
-	let alerts = $state<ChannelAlert[]>([]);
-	let isLoading = $state(true);
+	import { createQuery, useQueryClient } from '@tanstack/svelte-query';
+	import { alertsQueryOptions, alertsQueryKeys } from '$lib/query/alerts';
+	import {
+		FilterDrawer,
+		FilterTriggerButton,
+		FilterSection,
+		MultiSelectFilter
+	} from '$lib/components/filters';
+
+	const queryClient = useQueryClient();
+
+	const alertsQuery = createQuery(() =>
+		alertsQueryOptions(tenantStore.currentOrg?.id, tenantStore.selectedCreatorId)
+	);
+
+	let alerts = $derived(alertsQuery.data || []);
+	let isLoading = $derived(alertsQuery.isLoading);
 	let selectedAlert = $state<ChannelAlert | null>(null);
 	let isModalOpen = $state(false);
 	let resolutionNotes = $state('');
 	let isResolving = $state(false);
+	let isFilterOpen = $state(false);
 
-	async function loadAlerts() {
-		if (!tenantStore.currentOrg) return;
-		isLoading = true;
-		try {
-			alerts = await alertsService.getAlerts(
-				tenantStore.currentOrg.id,
-				tenantStore.selectedCreatorId
-			);
-		} catch (e) {
-			console.error('Error loading alerts:', e);
-		} finally {
-			isLoading = false;
+	let filters = $state<{
+		severities: string[];
+		status: 'all' | 'active' | 'resolved';
+		alertTypes: string[];
+	}>({
+		severities: [],
+		status: 'all',
+		alertTypes: []
+	});
+
+	let availableAlertTypes = $derived.by(() => {
+		const types = new Set<string>();
+		for (const a of alerts) {
+			if (a.alert_type) types.add(a.alert_type);
 		}
+		return Array.from(types).map((t) => ({ value: t, label: t }));
+	});
+
+	let activeFilterCount = $derived.by(() => {
+		let count = 0;
+		if (filters.severities.length > 0) count++;
+		if (filters.status !== 'all') count++;
+		if (filters.alertTypes.length > 0) count++;
+		return count;
+	});
+
+	function resetFilters() {
+		filters = {
+			severities: [],
+			status: 'all',
+			alertTypes: []
+		};
 	}
 
-	$effect(() => {
-		if (tenantStore.currentOrg) {
-			const _ = tenantStore.selectedCreatorId;
-			loadAlerts();
-		}
+	let filteredAlerts = $derived.by(() => {
+		return alerts.filter((a) => {
+			if (filters.severities.length > 0 && !filters.severities.includes(a.severity)) {
+				return false;
+			}
+			if (filters.alertTypes.length > 0 && !filters.alertTypes.includes(a.alert_type)) {
+				return false;
+			}
+			if (filters.status === 'active' && a.status !== 'active') return false;
+			if (filters.status === 'resolved' && a.status !== 'resolved') return false;
+			return true;
+		});
 	});
 
 	function openResolveModal(alert: ChannelAlert) {
@@ -56,7 +98,7 @@
 		isResolving = true;
 		try {
 			await alertsService.resolveAlert(selectedAlert.id, resolutionNotes);
-			await loadAlerts();
+			queryClient.invalidateQueries({ queryKey: alertsQueryKeys.all });
 			isModalOpen = false;
 		} catch (e) {
 			console.error('Error resolving alert:', e);
@@ -65,8 +107,8 @@
 		}
 	}
 
-	let activeAlerts = $derived(alerts.filter((a) => a.status === 'active'));
-	let resolvedAlerts = $derived(alerts.filter((a) => a.status === 'resolved'));
+	let activeAlerts = $derived(filteredAlerts.filter((a) => a.status === 'active'));
+	let resolvedAlerts = $derived(filteredAlerts.filter((a) => a.status === 'resolved'));
 </script>
 
 <div class="space-y-6">
@@ -83,6 +125,12 @@
 		</div>
 
 		<div class="flex items-center gap-2">
+			<FilterTriggerButton
+				activeCount={activeFilterCount}
+				isOpen={isFilterOpen}
+				onclick={() => (isFilterOpen = !isFilterOpen)}
+			/>
+
 			<Badge variant="warning" dot pulse size="md">
 				{activeAlerts.length} Activas
 			</Badge>
@@ -191,6 +239,88 @@
 		</div>
 	{/if}
 </div>
+
+<!-- Drawer de Filtros (Derecha) -->
+<FilterDrawer
+	isOpen={isFilterOpen}
+	title="Filtros de Alertas y Sanciones"
+	position="right"
+	activeCount={activeFilterCount}
+	onClose={() => (isFilterOpen = false)}
+	onReset={resetFilters}
+>
+	<!-- Estado -->
+	<FilterSection title="Estado de Resolución" defaultOpen={true}>
+		<div class="grid grid-cols-3 gap-2">
+			<button
+				type="button"
+				class="rounded-xl border px-3 py-2 text-xs font-semibold transition-all {filters.status === 'all'
+					? 'bg-indigo-600/20 text-indigo-300 border-indigo-500/40 shadow-sm'
+					: 'border-[#1F2937] bg-[#111827] text-gray-400 hover:text-white hover:bg-gray-800'}"
+				onclick={() => (filters.status = 'all')}
+			>
+				Todas
+			</button>
+			<button
+				type="button"
+				class="rounded-xl border px-3 py-2 text-xs font-semibold transition-all {filters.status === 'active'
+					? 'bg-amber-600/20 text-amber-300 border-amber-500/40 shadow-sm'
+					: 'border-[#1F2937] bg-[#111827] text-gray-400 hover:text-white hover:bg-gray-800'}"
+				onclick={() => (filters.status = 'active')}
+			>
+				Activas
+			</button>
+			<button
+				type="button"
+				class="rounded-xl border px-3 py-2 text-xs font-semibold transition-all {filters.status === 'resolved'
+					? 'bg-emerald-600/20 text-emerald-300 border-emerald-500/40 shadow-sm'
+					: 'border-[#1F2937] bg-[#111827] text-gray-400 hover:text-white hover:bg-gray-800'}"
+				onclick={() => (filters.status = 'resolved')}
+			>
+				Resueltas
+			</button>
+		</div>
+	</FilterSection>
+
+	<!-- Severidad -->
+	<FilterSection title="Severidad" defaultOpen={true}>
+		<div class="flex flex-wrap gap-2">
+			{#each [
+				{ key: 'critical', label: 'Crítica', color: 'rose' },
+				{ key: 'warning', label: 'Advertencia', color: 'amber' },
+				{ key: 'info', label: 'Informativa', color: 'blue' }
+			] as sev}
+				{@const isSelected = filters.severities.includes(sev.key)}
+				<button
+					type="button"
+					class="px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all {isSelected
+						? 'bg-indigo-600 text-white border-indigo-500 shadow-md'
+						: 'bg-[#111827] text-gray-400 border-[#1F2937] hover:text-white hover:border-gray-700'}"
+					onclick={() => {
+						if (isSelected) {
+							filters.severities = filters.severities.filter((s) => s !== sev.key);
+						} else {
+							filters.severities = [...filters.severities, sev.key];
+						}
+					}}
+				>
+					{sev.label}
+				</button>
+			{/each}
+		</div>
+	</FilterSection>
+
+	<!-- Tipo de Incidente -->
+	{#if availableAlertTypes.length > 0}
+		<FilterSection title="Tipo de Incidente" defaultOpen={true}>
+			<MultiSelectFilter
+				options={availableAlertTypes}
+				bind:selected={filters.alertTypes}
+				placeholder="Buscar tipo de alerta..."
+			/>
+		</FilterSection>
+	{/if}
+</FilterDrawer>
 
 <!-- Modal para resolver alerta -->
 <Modal

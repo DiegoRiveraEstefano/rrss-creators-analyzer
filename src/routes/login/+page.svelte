@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { page } from '$app/state';
 	import { authStore } from '$lib/stores/authStore.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Input from '$lib/components/ui/Input.svelte';
@@ -9,6 +10,8 @@
 	let password = $state('');
 	let errorMessage = $state<string | null>(null);
 	let isLoading = $state(false);
+
+	let redirectTarget = $derived(page.url.searchParams.get('redirectTo') || '/');
 
 	async function handleSubmit(e: SubmitEvent) {
 		e.preventDefault();
@@ -21,7 +24,7 @@
 		isLoading = true;
 		try {
 			await authStore.signIn(email, password);
-			goto('/');
+			goto(redirectTarget);
 		} catch (err: any) {
 			errorMessage = err.message || 'Credenciales inválidas. Por favor verifica tus datos.';
 		} finally {
@@ -35,7 +38,7 @@
 		isLoading = true;
 		try {
 			await authStore.signIn(email, password);
-			goto('/');
+			goto(redirectTarget);
 		} catch (err: any) {
 			errorMessage = err.message;
 		} finally {

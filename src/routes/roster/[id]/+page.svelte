@@ -1,9 +1,13 @@
 <script lang="ts">
 	import { page } from '$app/state';
+	import { createQuery, useQueryClient } from '@tanstack/svelte-query';
+	import { creatorDetailQueryOptions, creatorsQueryKeys } from '$lib/query/creators';
+	import { sessionsQueryOptions, sessionsQueryKeys } from '$lib/query/sessions';
+	import { videosQueryOptions, videosQueryKeys } from '$lib/query/videos';
+	import { analyticsSummaryQueryOptions, analyticsQueryKeys } from '$lib/query/analytics';
 	import { tenantStore } from '$lib/stores/tenantStore.svelte';
-	import { creatorService, type CreatorWithChannels } from '$lib/services/creatorService';
-	import { analyticsService, type StreamingSession, type AnalyticsSummary } from '$lib/services/analyticsService';
-	import { videoService, type PublishedVideo } from '$lib/services/videoService';
+	import type { StreamingSession } from '$lib/services/analyticsService';
+	import type { VideoWithDetails } from '$lib/services/videoService';
 	import { formatCurrency, formatNumber, formatDuration, formatDate, formatDateTime } from '$lib/utils/formatters';
 	import StatCard from '$lib/components/ui/StatCard.svelte';
 	import DataTable from '$lib/components/ui/DataTable.svelte';
@@ -29,56 +33,46 @@
 		Tv
 	} from 'lucide-svelte';
 
-	let creatorId = $derived(page.params.id);
-	let creator = $state<CreatorWithChannels | null>(null);
-	let sessions = $state<StreamingSession[]>([]);
-	let videos = $state<PublishedVideo[]>([]);
-	let summary = $state<AnalyticsSummary>({
-		totalEarnings: 0,
-		earningsChangePct: 0,
-		totalHours: 0,
-		hoursChangePct: 0,
-		avgCcv: 0,
-		ccvChangePct: 0,
-		peakViewers: 0,
-		totalSessions: 0,
-		activeAlertsCount: 0,
-		earningsPerHour: 0
-	});
+	const queryClient = useQueryClient();
 
-	let isLoading = $state(true);
+	let creatorId = $derived(page.params.id);
+
+	const creatorQuery = createQuery(() => creatorDetailQueryOptions(creatorId));
+	const sessionsQuery = createQuery(() => sessionsQueryOptions(tenantStore.currentOrg?.id, creatorId));
+	const videosQuery = createQuery(() => videosQueryOptions(tenantStore.currentOrg?.id, creatorId));
+	const summaryQuery = createQuery(() => analyticsSummaryQueryOptions(tenantStore.currentOrg?.id, creatorId));
+
+	let creator = $derived(creatorQuery.data ?? null);
+	let sessions = $derived(sessionsQuery.data ?? []);
+	let videos = $derived(videosQuery.data ?? []);
+	let summary = $derived(
+		summaryQuery.data ?? {
+			totalEarnings: 0,
+			earningsChangePct: 0,
+			totalHours: 0,
+			hoursChangePct: 0,
+			avgCcv: 0,
+			ccvChangePct: 0,
+			peakViewers: 0,
+			totalSessions: 0,
+			activeAlertsCount: 0,
+			earningsPerHour: 0
+		}
+	);
+
+	let isLoading = $derived(creatorQuery.isLoading);
 	let isEditModalOpen = $state(false);
 	let isAddSessionModalOpen = $state(false);
 	let isAddVideoModalOpen = $state(false);
 	let activeTab = $state<'sessions' | 'videos'>('sessions');
 
-	async function loadCreatorData() {
-		if (!creatorId || !tenantStore.currentOrg) return;
-		isLoading = true;
-		try {
-			const [c, s, v, sum] = await Promise.all([
-				creatorService.getCreatorById(creatorId),
-				analyticsService.getSessions(tenantStore.currentOrg.id, creatorId),
-				videoService.getVideosByCreator(creatorId),
-				analyticsService.getSummary(tenantStore.currentOrg.id, creatorId)
-			]);
-
-			creator = c;
-			sessions = s;
-			videos = v;
-			summary = sum;
-		} catch (error) {
-			console.error('Error loading creator detail:', error);
-		} finally {
-			isLoading = false;
-		}
+	function handleInvalidateAll() {
+		queryClient.invalidateQueries({ queryKey: creatorsQueryKeys.all });
+		queryClient.invalidateQueries({ queryKey: sessionsQueryKeys.all });
+		queryClient.invalidateQueries({ queryKey: videosQueryKeys.all });
+		queryClient.invalidateQueries({ queryKey: analyticsQueryKeys.all });
+		tenantStore.loadCreators();
 	}
-
-	$effect(() => {
-		if (creatorId && tenantStore.currentOrg) {
-			loadCreatorData();
-		}
-	});
 
 	// Columnas para Sesiones de Streaming
 	const sessionColumns: Column<StreamingSession>[] = [
@@ -91,14 +85,14 @@
 		{ key: 'total_earnings', label: 'Ingresos ($)', align: 'right', isMono: true, sortable: true }
 	];
 
-	// Columnas para Videos Subidos
-	const videoColumns: Column<PublishedVideo>[] = [
+	// Columnas para Videos
+	const videoColumns: Column<VideoWithDetails>[] = [
 		{ key: 'title', label: 'Título del Video', sortable: true },
-		{ key: 'platform', label: 'Plataforma', align: 'center', sortable: true },
-		{ key: 'views_count', label: 'Visualizaciones', align: 'right', isMono: true, sortable: true },
-		{ key: 'likes_count', label: 'Likes', align: 'right', isMono: true, sortable: true },
-		{ key: 'comments_count', label: 'Comentarios', align: 'right', isMono: true, sortable: true },
-		{ key: 'estimated_revenue', label: 'Ingresos Estimados ($)', align: 'right', isMono: true, sortable: true }
+		{ key: 'category', label: 'Categoría', sortable: true },
+		{ key: 'duration_seconds', label: 'Duración (s)', align: 'right', isMono: true, sortable: true },
+		{ key: 'total_views', label: 'Visualizaciones', align: 'right', isMono: true, sortable: true },
+		{ key: 'total_likes', label: 'Likes', align: 'right', isMono: true, sortable: true },
+		{ key: 'total_revenue', label: 'Ingresos Est. ($)', align: 'right', isMono: true, sortable: true }
 	];
 </script>
 
@@ -268,7 +262,7 @@
 					data={videos}
 					columns={videoColumns}
 					searchPlaceholder="Buscar en videos del creador..."
-					searchKeys={['title', 'platform']}
+					searchKeys={['title', 'category']}
 				/>
 			{/if}
 		</div>
@@ -278,7 +272,7 @@
 			isOpen={isEditModalOpen}
 			{creator}
 			onClose={() => (isEditModalOpen = false)}
-			onUpdated={loadCreatorData}
+			onUpdated={handleInvalidateAll}
 		/>
 
 		{#if tenantStore.currentOrg}
@@ -287,7 +281,7 @@
 				organizationId={tenantStore.currentOrg.id}
 				creatorId={creator.id}
 				onClose={() => (isAddSessionModalOpen = false)}
-				onAdded={loadCreatorData}
+				onAdded={handleInvalidateAll}
 			/>
 
 			<AddVideoModal
@@ -295,7 +289,7 @@
 				organizationId={tenantStore.currentOrg.id}
 				creatorId={creator.id}
 				onClose={() => (isAddVideoModalOpen = false)}
-				onAdded={loadCreatorData}
+				onAdded={handleInvalidateAll}
 			/>
 		{/if}
 	{/if}

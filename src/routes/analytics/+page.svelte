@@ -1,6 +1,8 @@
 <script lang="ts">
+	import { createQuery } from '@tanstack/svelte-query';
+	import { sessionsQueryOptions } from '$lib/query/sessions';
 	import { tenantStore } from '$lib/stores/tenantStore.svelte';
-	import { analyticsService, type StreamingSession } from '$lib/services/analyticsService';
+	import type { StreamingSession } from '$lib/services/analyticsService';
 	import { formatCurrency, formatNumber } from '$lib/utils/formatters';
 	import StatCard from '$lib/components/ui/StatCard.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
@@ -15,30 +17,12 @@
 		Flame
 	} from 'lucide-svelte';
 
-	let sessions = $state<StreamingSession[]>([]);
-	let isLoading = $state(true);
+	const sessionsQuery = createQuery(() =>
+		sessionsQueryOptions(tenantStore.currentOrg?.id, tenantStore.selectedCreatorId)
+	);
 
-	async function loadAnalytics() {
-		if (!tenantStore.currentOrg) return;
-		isLoading = true;
-		try {
-			sessions = await analyticsService.getSessions(
-				tenantStore.currentOrg.id,
-				tenantStore.selectedCreatorId
-			);
-		} catch (e) {
-			console.error('Error loading analytics:', e);
-		} finally {
-			isLoading = false;
-		}
-	}
-
-	$effect(() => {
-		if (tenantStore.currentOrg) {
-			const _ = tenantStore.selectedCreatorId;
-			loadAnalytics();
-		}
-	});
+	let sessions = $derived(sessionsQuery.data || []);
+	let isLoading = $derived(sessionsQuery.isLoading);
 
 	// Gráfico de Correlación: Horas vs Ingresos
 	let correlationChartOptions = $derived.by<EChartsOption>(() => {

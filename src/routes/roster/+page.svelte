@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { createQuery, useQueryClient } from '@tanstack/svelte-query';
+	import { creatorsQueryOptions, creatorsQueryKeys } from '$lib/query/creators';
 	import { tenantStore } from '$lib/stores/tenantStore.svelte';
 	import { creatorService, type CreatorWithChannels } from '$lib/services/creatorService';
 	import { formatNumber } from '$lib/utils/formatters';
@@ -18,13 +20,82 @@
 		Tv,
 		Edit,
 		BarChart3,
-		UserCheck
+		UserCheck,
+		Loader2
 	} from 'lucide-svelte';
+
+	import {
+		FilterDrawer,
+		FilterTriggerButton,
+		FilterSection,
+		PlatformFilter,
+		RangeFilter,
+		type RosterFilterState
+	} from '$lib/components/filters';
+
+	const queryClient = useQueryClient();
+
+	const creatorsQuery = createQuery(() => creatorsQueryOptions(tenantStore.currentOrg?.id));
+
+	let creators = $derived(creatorsQuery.data || []);
+	let isLoading = $derived(creatorsQuery.isLoading);
 
 	let isCreateModalOpen = $state(false);
 	let isEditModalOpen = $state(false);
 	let selectedCreatorForEdit = $state<CreatorWithChannels | null>(null);
 	let isCreating = $state(false);
+	let isFilterOpen = $state(false);
+
+	let filters = $state<{
+		platforms: PlatformType[];
+		status: 'all' | 'live' | 'offline';
+		minFollowers: number | null;
+	}>({
+		platforms: [],
+		status: 'all',
+		minFollowers: null
+	});
+
+	let activeFilterCount = $derived.by(() => {
+		let count = 0;
+		if (filters.platforms.length > 0) count++;
+		if (filters.status !== 'all') count++;
+		if (filters.minFollowers != null && filters.minFollowers > 0) count++;
+		return count;
+	});
+
+	function resetFilters() {
+		filters = {
+			platforms: [],
+			status: 'all',
+			minFollowers: null
+		};
+	}
+
+	let filteredCreators = $derived.by(() => {
+		return creators.filter((creator) => {
+			if (filters.platforms.length > 0) {
+				const hasMatchingPlatform =
+					filters.platforms.includes(creator.primary_platform) ||
+					creator.channels.some((c) => filters.platforms.includes(c.platform as any));
+				if (!hasMatchingPlatform) return false;
+			}
+
+			const isLive = creator.channels.some((c) => c.is_live);
+			if (filters.status === 'live' && !isLive) return false;
+			if (filters.status === 'offline' && isLive) return false;
+
+			if (filters.minFollowers != null && filters.minFollowers > 0) {
+				const totalFollowers = creator.channels.reduce(
+					(acc, c) => acc + (c.followers_count || 0),
+					0
+				);
+				if (totalFollowers < filters.minFollowers) return false;
+			}
+
+			return true;
+		});
+	});
 
 	let newDisplayName = $state('');
 	let newHandle = $state('');
@@ -44,6 +115,7 @@
 				avatar_url: newAvatarUrl || `https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80`,
 				bio: newBio || null
 			});
+			await queryClient.invalidateQueries({ queryKey: creatorsQueryKeys.all });
 			await tenantStore.loadCreators();
 			isCreateModalOpen = false;
 			// Reset form
@@ -77,14 +149,27 @@
 			</p>
 		</div>
 
-		<Button variant="primary" size="md" onclick={() => (isCreateModalOpen = true)}>
-			<Plus size={16} />
-			Añadir Creador al Roster
-		</Button>
+		<div class="flex items-center gap-2">
+			<FilterTriggerButton
+				activeCount={activeFilterCount}
+				isOpen={isFilterOpen}
+				onclick={() => (isFilterOpen = !isFilterOpen)}
+			/>
+
+			<Button variant="primary" size="md" onclick={() => (isCreateModalOpen = true)}>
+				<Plus size={16} />
+				Añadir Creador al Roster
+			</Button>
+		</div>
 	</div>
 
 	<!-- Roster Grid -->
-	{#if tenantStore.creators.length === 0}
+	{#if isLoading && creators.length === 0}
+		<div class="rounded-2xl border border-[#1F2937] bg-[#111827] p-16 text-center space-y-3 flex flex-col items-center justify-center">
+			<Loader2 size={32} class="animate-spin text-indigo-400" />
+			<p class="text-xs text-gray-400 mt-2">Cargando creadores del roster...</p>
+		</div>
+	{:else if creators.length === 0}
 		<div class="rounded-2xl border border-[#1F2937] bg-[#111827] p-12 text-center space-y-3">
 			<div class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
 				<Users size={28} />
@@ -100,9 +185,24 @@
 				</Button>
 			</div>
 		</div>
+	{:else if filteredCreators.length === 0}
+		<div class="rounded-2xl border border-[#1F2937] bg-[#111827] p-12 text-center space-y-3">
+			<div class="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-gray-800 text-gray-400 border border-gray-700">
+				<Users size={24} />
+			</div>
+			<h3 class="text-base font-bold text-white">Ningún creador coincide con los filtros aplicados</h3>
+			<p class="text-xs text-gray-400 max-w-sm mx-auto">
+				Prueba cambiando la plataforma seleccionada, el estado de transmisión o los umbrales numéricos.
+			</p>
+			<div class="pt-2">
+				<Button variant="secondary" size="sm" onclick={resetFilters}>
+					Limpiar Filtros
+				</Button>
+			</div>
+		</div>
 	{:else}
 		<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-			{#each tenantStore.creators as creator}
+			{#each filteredCreators as creator}
 				{@const isLive = creator.channels.some((c) => c.is_live)}
 				{@const totalFollowers = creator.channels.reduce((acc, c) => acc + (c.followers_count || 0), 0)}
 				{@const totalSubs = creator.channels.reduce((acc, c) => acc + (c.subscribers_count || 0), 0)}
@@ -224,6 +324,64 @@
 	{/if}
 </div>
 
+<!-- Drawer de Filtros (Derecha) -->
+<FilterDrawer
+	isOpen={isFilterOpen}
+	title="Filtros de Creadores"
+	position="right"
+	activeCount={activeFilterCount}
+	onClose={() => (isFilterOpen = false)}
+	onReset={resetFilters}
+>
+	<!-- Plataformas -->
+	<FilterSection title="Plataforma Principal" defaultOpen={true}>
+		<PlatformFilter bind:selected={filters.platforms} />
+	</FilterSection>
+
+	<!-- Estado de Emisión -->
+	<FilterSection title="Estado de Transmisión" defaultOpen={true}>
+		<div class="grid grid-cols-3 gap-2">
+			<button
+				type="button"
+				class="rounded-xl border px-3 py-2 text-xs font-semibold transition-all {filters.status === 'all'
+					? 'bg-indigo-600/20 text-indigo-300 border-indigo-500/40 shadow-sm'
+					: 'border-[#1F2937] bg-[#111827] text-gray-400 hover:text-white hover:bg-gray-800'}"
+				onclick={() => (filters.status = 'all')}
+			>
+				Todos
+			</button>
+			<button
+				type="button"
+				class="rounded-xl border px-3 py-2 text-xs font-semibold transition-all {filters.status === 'live'
+					? 'bg-cyan-600/20 text-cyan-300 border-cyan-500/40 shadow-sm'
+					: 'border-[#1F2937] bg-[#111827] text-gray-400 hover:text-white hover:bg-gray-800'}"
+				onclick={() => (filters.status = 'live')}
+			>
+				En Vivo
+			</button>
+			<button
+				type="button"
+				class="rounded-xl border px-3 py-2 text-xs font-semibold transition-all {filters.status === 'offline'
+					? 'bg-gray-700/50 text-gray-200 border-gray-600 shadow-sm'
+					: 'border-[#1F2937] bg-[#111827] text-gray-400 hover:text-white hover:bg-gray-800'}"
+				onclick={() => (filters.status = 'offline')}
+			>
+				Offline
+			</button>
+		</div>
+	</FilterSection>
+
+	<!-- Audiencia de Canales -->
+	<FilterSection title="Comunidad / Seguidores" defaultOpen={true}>
+		<RangeFilter
+			label="Seguidores Mínimos"
+			unit="fans"
+			step={1000}
+			bind:min={filters.minFollowers}
+		/>
+	</FilterSection>
+</FilterDrawer>
+
 <!-- Modal para añadir Creador -->
 <Modal
 	isOpen={isCreateModalOpen}
@@ -291,5 +449,8 @@
 	isOpen={isEditModalOpen}
 	creator={selectedCreatorForEdit}
 	onClose={() => (isEditModalOpen = false)}
-	onUpdated={() => tenantStore.loadCreators()}
+	onUpdated={() => {
+		queryClient.invalidateQueries({ queryKey: creatorsQueryKeys.all });
+		tenantStore.loadCreators();
+	}}
 />

@@ -2,14 +2,27 @@
 	import { page } from '$app/state';
 	import { tenantStore } from '$lib/stores/tenantStore.svelte';
 	import { creatorService, type CreatorWithChannels } from '$lib/services/creatorService';
-	import { analyticsService, type StreamingSession, type AnalyticsSummary } from '$lib/services/analyticsService';
-	import { videoService, type PublishedVideo } from '$lib/services/videoService';
+	import {
+		analyticsService,
+		type StreamingSession,
+		type AnalyticsSummary
+	} from '$lib/services/analyticsService';
+	import { videoService, type VideoWithDetails } from '$lib/services/videoService';
 	import { formatCurrency, formatNumber } from '$lib/utils/formatters';
 	import StatCard from '$lib/components/ui/StatCard.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import EChart from '$lib/components/charts/EChart.svelte';
 	import type { EChartsOption } from 'echarts';
+	import {
+		FilterDrawer,
+		FilterTriggerButton,
+		FilterSection,
+		DateRangeFilter,
+		PlatformFilter,
+		RangeFilter,
+		type DashboardFilterState
+	} from '$lib/components/filters';
 	import {
 		BarChart3,
 		LineChart,
@@ -22,51 +35,136 @@
 		Sparkles
 	} from 'lucide-svelte';
 
+	import { createQuery } from '@tanstack/svelte-query';
+	import { creatorDetailQueryOptions } from '$lib/query/creators';
+	import { sessionsQueryOptions } from '$lib/query/sessions';
+	import { videosQueryOptions } from '$lib/query/videos';
+	import { analyticsSummaryQueryOptions } from '$lib/query/analytics';
+
 	let creatorId = $derived(page.params.id);
-	let creator = $state<CreatorWithChannels | null>(null);
-	let sessions = $state<StreamingSession[]>([]);
-	let videos = $state<PublishedVideo[]>([]);
-	let summary = $state<AnalyticsSummary>({
-		totalEarnings: 0,
-		earningsChangePct: 0,
-		totalHours: 0,
-		hoursChangePct: 0,
-		avgCcv: 0,
-		ccvChangePct: 0,
-		peakViewers: 0,
-		totalSessions: 0,
-		activeAlertsCount: 0,
-		earningsPerHour: 0
+
+	const creatorQuery = createQuery(() => creatorDetailQueryOptions(creatorId));
+	const sessionsQuery = createQuery(() =>
+		sessionsQueryOptions(tenantStore.currentOrg?.id, creatorId)
+	);
+	const videosQuery = createQuery(() =>
+		videosQueryOptions(tenantStore.currentOrg?.id, creatorId)
+	);
+	const summaryQuery = createQuery(() =>
+		analyticsSummaryQueryOptions(tenantStore.currentOrg?.id, creatorId)
+	);
+
+	let creator = $derived(creatorQuery.data || null);
+	let rawSessions = $derived(sessionsQuery.data || []);
+	let rawVideos = $derived(videosQuery.data || []);
+	let rawSummary = $derived(
+		summaryQuery.data || {
+			totalEarnings: 0,
+			earningsChangePct: 0,
+			totalHours: 0,
+			hoursChangePct: 0,
+			avgCcv: 0,
+			ccvChangePct: 0,
+			peakViewers: 0,
+			totalSessions: 0,
+			activeAlertsCount: 0,
+			earningsPerHour: 0
+		}
+	);
+
+	let isLoading = $derived(
+		creatorQuery.isLoading || sessionsQuery.isLoading || videosQuery.isLoading || summaryQuery.isLoading
+	);
+	let isFilterDrawerOpen = $state(false);
+
+	let filters = $state<DashboardFilterState>({
+		dateRange: { preset: 'all' },
+		platforms: ['twitch', 'youtube', 'kick', 'tiktok'],
+		minCcv: null,
+		minEarnings: null,
+		categories: []
 	});
 
-	let isLoading = $state(true);
+	// Conteo de filtros activos
+	let activeFiltersCount = $derived.by(() => {
+		let count = 0;
+		if (filters.dateRange.preset !== 'all') count++;
+		if (filters.platforms.length < 4) count++;
+		if (filters.minCcv !== null && filters.minCcv !== undefined) count++;
+		if (filters.minEarnings !== null && filters.minEarnings !== undefined) count++;
+		return count;
+	});
 
-	async function loadDashboard() {
-		if (!creatorId || !tenantStore.currentOrg) return;
-		isLoading = true;
-		try {
-			const [c, s, v, sum] = await Promise.all([
-				creatorService.getCreatorById(creatorId),
-				analyticsService.getSessions(tenantStore.currentOrg.id, creatorId),
-				videoService.getVideosByCreator(creatorId),
-				analyticsService.getSummary(tenantStore.currentOrg.id, creatorId)
-			]);
-
-			creator = c;
-			sessions = s;
-			videos = v;
-			summary = sum;
-		} catch (error) {
-			console.error('Error loading creator dashboard:', error);
-		} finally {
-			isLoading = false;
-		}
+	function resetFilters() {
+		filters = {
+			dateRange: { preset: 'all' },
+			platforms: ['twitch', 'youtube', 'kick', 'tiktok'],
+			minCcv: null,
+			minEarnings: null,
+			categories: []
+		};
 	}
 
-	$effect(() => {
-		if (creatorId && tenantStore.currentOrg) {
-			loadDashboard();
+	// Sesiones filtradas
+	let sessions = $derived.by(() => {
+		let list = [...rawSessions];
+
+		if (filters.platforms.length > 0) {
+			list = list.filter((s) => filters.platforms.includes(s.platform));
 		}
+
+		if (filters.dateRange.from) {
+			const fromTime = new Date(filters.dateRange.from).getTime();
+			list = list.filter((s) => new Date(s.streamed_at).getTime() >= fromTime);
+		}
+		if (filters.dateRange.to) {
+			const toTime = new Date(filters.dateRange.to).getTime() + 86400000;
+			list = list.filter((s) => new Date(s.streamed_at).getTime() <= toTime);
+		}
+
+		if (filters.minCcv !== null && filters.minCcv !== undefined) {
+			list = list.filter((s) => s.avg_ccv >= (filters.minCcv || 0));
+		}
+
+		if (filters.minEarnings !== null && filters.minEarnings !== undefined) {
+			list = list.filter((s) => s.total_earnings >= (filters.minEarnings || 0));
+		}
+
+		return list;
+	});
+
+	// Videos filtrados
+	let videos = $derived.by(() => {
+		let list = [...rawVideos];
+		if (filters.platforms.length > 0) {
+			list = list.filter((v) => v.platforms.some((p) => filters.platforms.includes(p)));
+		}
+		return list;
+	});
+
+	// Resumen recalculado
+	let summary = $derived.by<AnalyticsSummary>(() => {
+		const totalStreamEarnings = sessions.reduce((acc, s) => acc + Number(s.total_earnings || 0), 0);
+		const totalVideoEarnings = videos.reduce((acc, v) => acc + Number(v.total_revenue || 0), 0);
+		const totalDurationSecs = sessions.reduce((acc, s) => acc + (s.duration_seconds || 0), 0);
+		const totalHours = Number((totalDurationSecs / 3600).toFixed(1));
+		const avgCcv =
+			sessions.length > 0
+				? Math.round(sessions.reduce((acc, s) => acc + (s.avg_ccv || 0), 0) / sessions.length)
+				: 0;
+		const peakViewers = sessions.reduce((acc, s) => Math.max(acc, s.peak_viewers || 0), 0);
+		const earningsPerHour =
+			totalHours > 0 ? Number((totalStreamEarnings / totalHours).toFixed(2)) : 0;
+
+		return {
+			...rawSummary,
+			totalEarnings: totalStreamEarnings + totalVideoEarnings,
+			totalHours,
+			avgCcv,
+			peakViewers,
+			totalSessions: sessions.length,
+			earningsPerHour
+		};
 	});
 
 	// Gráfico 1: Concurrencia de Audiencia en Vivo
@@ -99,12 +197,13 @@
 				type: 'category',
 				data: dates,
 				axisLine: { lineStyle: { color: '#2D3748' } },
-				axisLabel: { color: '#9CA3AF' }
+				axisLabel: { color: '#9CA3AF', fontSize: 11 }
 			},
 			yAxis: {
 				type: 'value',
+				axisLine: { lineStyle: { color: '#2D3748' } },
 				splitLine: { lineStyle: { color: '#1F2937' } },
-				axisLabel: { color: '#9CA3AF' }
+				axisLabel: { color: '#9CA3AF', fontSize: 11 }
 			},
 			series: [
 				{
@@ -112,7 +211,7 @@
 					type: 'line',
 					smooth: true,
 					data: ccv,
-					itemStyle: { color: '#06B6D4' },
+					itemStyle: { color: '#6366F1' },
 					areaStyle: {
 						color: {
 							type: 'linear',
@@ -121,8 +220,8 @@
 							x2: 0,
 							y2: 1,
 							colorStops: [
-								{ offset: 0, color: 'rgba(6, 182, 212, 0.4)' },
-								{ offset: 1, color: 'rgba(6, 182, 212, 0.0)' }
+								{ offset: 0, color: 'rgba(99, 102, 241, 0.4)' },
+								{ offset: 1, color: 'rgba(99, 102, 241, 0.0)' }
 							]
 						}
 					}
@@ -132,61 +231,65 @@
 					type: 'line',
 					smooth: true,
 					data: peak,
-					itemStyle: { color: '#6366F1' },
-					lineStyle: { type: 'dashed', width: 2 }
+					itemStyle: { color: '#06B6D4' }
 				}
 			]
 		};
 	});
 
-	// Gráfico 2: Monetización por Categoría
-	let categoryChartOptions = $derived.by<EChartsOption>(() => {
-		const categoryMap: Record<string, number> = {};
-		for (const s of sessions) {
-			const cat = s.game_or_category || 'General';
-			categoryMap[cat] = (categoryMap[cat] || 0) + Number(s.total_earnings || 0);
-		}
-
-		const categories = Object.keys(categoryMap);
-		const earnings = Object.values(categoryMap);
+	// Gráfico 2: Ingresos por Stream
+	let earningsChartOptions = $derived.by<EChartsOption>(() => {
+		const sorted = [...sessions].sort(
+			(a, b) => new Date(a.streamed_at).getTime() - new Date(b.streamed_at).getTime()
+		);
+		const dates = sorted.map((s) => {
+			const d = new Date(s.streamed_at);
+			return `${d.getDate()}/${d.getMonth() + 1}`;
+		});
+		const ad = sorted.map((s) => s.ad_revenue);
+		const subs = sorted.map((s) => s.subs_revenue);
 
 		return {
 			tooltip: {
 				trigger: 'axis',
-				formatter: '{b}: ${c}',
 				backgroundColor: '#1F2937',
 				borderColor: '#374151',
 				textStyle: { color: '#F9FAFB' }
 			},
+			legend: {
+				data: ['Publicidad', 'Suscripciones'],
+				textStyle: { color: '#9CA3AF' },
+				top: 0,
+				right: 0
+			},
 			grid: { left: '3%', right: '3%', bottom: '8%', top: '15%', containLabel: true },
 			xAxis: {
 				type: 'category',
-				data: categories,
+				data: dates,
 				axisLine: { lineStyle: { color: '#2D3748' } },
-				axisLabel: { color: '#9CA3AF', rotate: 15, fontSize: 10 }
+				axisLabel: { color: '#9CA3AF', fontSize: 11 }
 			},
 			yAxis: {
 				type: 'value',
+				axisLine: { lineStyle: { color: '#2D3748' } },
 				splitLine: { lineStyle: { color: '#1F2937' } },
-				axisLabel: { color: '#9CA3AF', formatter: '${value}' }
+				axisLabel: { color: '#9CA3AF', fontSize: 11, formatter: '${value}' }
 			},
 			series: [
 				{
-					name: 'Ingresos',
+					name: 'Publicidad',
 					type: 'bar',
-					data: earnings,
+					stack: 'total',
+					data: ad,
+					itemStyle: { color: '#3B82F6' }
+				},
+				{
+					name: 'Suscripciones',
+					type: 'bar',
+					stack: 'total',
+					data: subs,
 					itemStyle: {
-						color: {
-							type: 'linear',
-							x: 0,
-							y: 0,
-							x2: 0,
-							y2: 1,
-							colorStops: [
-								{ offset: 0, color: '#10B981' },
-								{ offset: 1, color: '#059669' }
-							]
-						},
+						color: '#10B981',
 						borderRadius: [4, 4, 0, 0]
 					}
 				}
@@ -197,7 +300,7 @@
 	// Gráfico 3: Desglose Streams vs Videos
 	let revenueMixOptions = $derived.by<EChartsOption>(() => {
 		const streamEarnings = sessions.reduce((acc, s) => acc + Number(s.total_earnings || 0), 0);
-		const videoEarnings = videos.reduce((acc, v) => acc + Number(v.estimated_revenue || 0), 0);
+		const videoEarnings = videos.reduce((acc, v) => acc + Number(v.total_revenue || 0), 0);
 
 		return {
 			tooltip: {
@@ -214,15 +317,19 @@
 			},
 			series: [
 				{
+					name: 'Mix de Ingresos',
 					type: 'pie',
-					radius: ['45%', '70%'],
+					radius: ['50%', '75%'],
+					center: ['50%', '42%'],
+					avoidLabelOverlap: false,
 					itemStyle: {
 						borderRadius: 6,
 						borderColor: '#111827',
-						borderWidth: 3
+						borderWidth: 2
 					},
+					label: { show: false },
 					data: [
-						{ value: streamEarnings, name: 'Transmisiones en Vivo', itemStyle: { color: '#6366F1' } },
+						{ value: streamEarnings, name: 'Streaming en Vivo', itemStyle: { color: '#6366F1' } },
 						{ value: videoEarnings, name: 'Videos Subidos / VODs', itemStyle: { color: '#06B6D4' } }
 					]
 				}
@@ -232,107 +339,163 @@
 </script>
 
 <svelte:head>
-	<title>Dashboard Analítico de {creator?.display_name || 'Creador'} | RRSS Creators Analyzer</title>
+	<title>{creator?.display_name || 'Creador'} | BI Dashboard</title>
 </svelte:head>
 
 <div class="space-y-6">
-	<!-- Top Navigation -->
-	<div class="flex items-center justify-between">
-		<a href="/roster/{creatorId}" class="inline-flex items-center gap-1.5 text-xs text-gray-400 hover:text-white transition-colors">
-			<ArrowLeft size={14} />
-			<span>Volver a Perfil de {creator?.display_name || 'Creador'}</span>
-		</a>
+	<!-- Top Breadcrumb & Action Bar -->
+	<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+		<div class="flex items-center gap-3">
+			<a
+				href="/roster/{creatorId}"
+				class="flex h-9 w-9 items-center justify-center rounded-xl border border-[#2D3748] bg-[#111827] text-gray-400 hover:border-gray-600 hover:text-white transition-colors"
+			>
+				<ArrowLeft size={16} />
+			</a>
 
-		<div class="flex items-center gap-2">
-			<Badge variant="cyan" size="md">
-				Dashboard Individual
-			</Badge>
+			<div>
+				<div class="flex items-center gap-2">
+					<h1 class="text-xl font-bold tracking-tight text-white flex items-center gap-2">
+						<BarChart3 class="text-indigo-400" size={22} />
+						<span>Dashboard Analítico: {creator?.display_name || '...'}</span>
+					</h1>
+					{#if creator?.primary_platform}
+						<Badge variant="purple" size="sm">
+							{creator.primary_platform}
+						</Badge>
+					{/if}
+				</div>
+				<p class="text-xs text-gray-400 mt-0.5 font-mono">
+					@{creator?.handle || ''} • Métricas de rendimiento, ingresos y audiencia
+				</p>
+			</div>
 		</div>
-	</div>
 
-	<!-- Title Header -->
-	<div class="flex items-center gap-4">
-		{#if creator?.avatar_url}
-			<img
-				src={creator.avatar_url}
-				alt={creator.display_name}
-				class="h-12 w-12 rounded-xl object-cover ring-2 ring-cyan-500/40"
+		<!-- Action buttons con Drawer a la DERECHA -->
+		<div class="flex items-center gap-3">
+			<FilterTriggerButton
+				isOpen={isFilterDrawerOpen}
+				activeCount={activeFiltersCount}
+				label="Filtros del Creador"
+				size="sm"
+				onclick={() => (isFilterDrawerOpen = !isFilterDrawerOpen)}
 			/>
-		{/if}
-		<div>
-			<h1 class="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
-				<span>Dashboard Analítico: {creator?.display_name || 'Creador'}</span>
-			</h1>
-			<p class="text-xs text-gray-400">
-				Métricas avanzadas de monetización, visualizaciones y retención exclusivas de este talento.
-			</p>
+
+			<a
+				href="/roster/{creatorId}"
+				class="inline-flex items-center gap-1.5 rounded-xl border border-[#2D3748] bg-[#111827] px-3 py-1.5 text-xs font-semibold text-gray-300 hover:bg-gray-800 hover:text-white transition-colors"
+			>
+				<span>Ver Perfil y Tablas</span>
+			</a>
 		</div>
 	</div>
 
-	<!-- KPIs -->
+	<!-- KPIs Grid Reactivo -->
 	<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
 		<StatCard
-			title="Ingresos Totales Combinados"
+			title="Ingresos Totales (Periodo)"
 			value={formatCurrency(summary.totalEarnings)}
 			icon={DollarSign}
 			iconColor="emerald"
+			subtitle="Streams + Videos"
 		/>
 
 		<StatCard
-			title="Horas en Vivo"
-			value={`${summary.totalHours}h`}
+			title="Horas en Directo"
+			value={`${summary.totalHours} hrs`}
 			icon={Clock}
 			iconColor="indigo"
+			subtitle={`${summary.totalSessions} directos analizados`}
 		/>
 
 		<StatCard
-			title="Media CCV"
+			title="Media de Concurrencia (CCV)"
 			value={formatNumber(summary.avgCcv)}
 			icon={Users}
 			iconColor="cyan"
+			subtitle={`Pico máx: ${formatNumber(summary.peakViewers)}`}
 		/>
 
 		<StatCard
-			title="Rendimiento $/Hora Stream"
-			value={`${formatCurrency(summary.earningsPerHour)}/h`}
+			title="Eficiencia ($ / Hora)"
+			value={formatCurrency(summary.earningsPerHour)}
 			icon={Zap}
 			iconColor="amber"
+			subtitle="Rendimiento streaming"
 		/>
 	</div>
 
-	<!-- Visualizaciones Gráficas -->
-	<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-		<div class="rounded-xl border border-[#1F2937] bg-[#111827] p-5 shadow-xl">
-			<div class="flex items-center justify-between mb-3">
-				<div>
-					<h3 class="text-sm font-semibold text-white">Evolución de Audiencia en Directo (CCV)</h3>
-					<p class="text-[11px] text-gray-400">Media de espectadores concurrentes y picos</p>
-				</div>
-				<Badge variant="cyan" size="sm">Streams</Badge>
+	<!-- Gráficos ECharts -->
+	<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+		<!-- Gráfico de Concurrencia -->
+		<div class="lg:col-span-2 rounded-2xl border border-[#1F2937] bg-[#111827] p-5 shadow-xl">
+			<div class="flex items-center justify-between mb-4">
+				<h3 class="text-sm font-semibold text-white">Evolución de Concurrencia (CCV y Picos)</h3>
+				<span class="text-xs text-gray-500 font-mono">{sessions.length} directos</span>
 			</div>
-			<EChart options={concurrencyChartOptions} height="280px" />
+			<div class="h-72 w-full">
+				<EChart options={concurrencyChartOptions} />
+			</div>
 		</div>
 
-		<div class="rounded-xl border border-[#1F2937] bg-[#111827] p-5 shadow-xl">
-			<div class="flex items-center justify-between mb-3">
-				<div>
-					<h3 class="text-sm font-semibold text-white">Mix de Ingresos: Streams vs. Videos</h3>
-					<p class="text-[11px] text-gray-400">Distribución de monetización total</p>
-				</div>
-				<Badge variant="indigo" size="sm">Monetización</Badge>
+		<!-- Gráfico de Mix Streams vs Videos -->
+		<div class="rounded-2xl border border-[#1F2937] bg-[#111827] p-5 shadow-xl">
+			<div class="flex items-center justify-between mb-4">
+				<h3 class="text-sm font-semibold text-white">Mix de Ingresos</h3>
 			</div>
-			<EChart options={revenueMixOptions} height="280px" />
+			<div class="h-72 w-full">
+				<EChart options={revenueMixOptions} />
+			</div>
 		</div>
 	</div>
 
-	<div class="rounded-xl border border-[#1F2937] bg-[#111827] p-5 shadow-xl">
-		<div class="flex items-center justify-between mb-3">
-			<div>
-				<h3 class="text-sm font-semibold text-white">Ingresos por Categoría / Contenido</h3>
-				<p class="text-[11px] text-gray-400">Juegos y tipos de transmisión más rentables</p>
-			</div>
-			<Badge variant="success" size="sm">Categorías</Badge>
+	<!-- Gráfico de Ingresos por Día -->
+	<div class="rounded-2xl border border-[#1F2937] bg-[#111827] p-5 shadow-xl">
+		<div class="flex items-center justify-between mb-4">
+			<h3 class="text-sm font-semibold text-white">Ingresos por Publicidad y Suscripciones</h3>
 		</div>
-		<EChart options={categoryChartOptions} height="280px" />
+		<div class="h-64 w-full">
+			<EChart options={earningsChartOptions} />
+		</div>
 	</div>
+
+	<!-- Drawer de Filtros a la DERECHA -->
+	<FilterDrawer
+		isOpen={isFilterDrawerOpen}
+		position="right"
+		title="Filtros de Rendimiento"
+		activeCount={activeFiltersCount}
+		onClose={() => (isFilterDrawerOpen = false)}
+		onReset={resetFilters}
+	>
+		<FilterSection title="Periodo de Tiempo" defaultOpen={true}>
+			<DateRangeFilter
+				value={filters.dateRange}
+				onchange={(val) => (filters.dateRange = val)}
+			/>
+		</FilterSection>
+
+		<FilterSection title="Plataformas" defaultOpen={true}>
+			<PlatformFilter
+				selectedPlatforms={filters.platforms}
+				onchange={(p) => (filters.platforms = p)}
+			/>
+		</FilterSection>
+
+		<FilterSection title="Umbrales de Métricas" defaultOpen={false}>
+			<div class="space-y-3">
+				<RangeFilter
+					label="Concurrencia Mínima (CCV)"
+					min={filters.minCcv}
+					onchange={(r) => (filters.minCcv = r.min)}
+				/>
+				<RangeFilter
+					label="Ingresos Mínimos ($)"
+					unit="$ USD"
+					min={filters.minEarnings}
+					onchange={(r) => (filters.minEarnings = r.min)}
+				/>
+			</div>
+		</FilterSection>
+	</FilterDrawer>
 </div>
