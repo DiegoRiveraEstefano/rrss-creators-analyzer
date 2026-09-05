@@ -17,8 +17,11 @@
 		badgeText = null,
 		children
 	}: Props = $props();
+	let isOpen = $state(true);
 
-	let isOpen = $state(defaultOpen);
+	$effect(() => {
+		isOpen = defaultOpen;
+	});
 </script>
 
 <div class="border-b border-[#1F2937] py-3.5 last:border-b-0">

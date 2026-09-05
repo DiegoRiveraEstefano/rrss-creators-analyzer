@@ -14,7 +14,12 @@
 		Sparkles,
 		Database,
 		Keyboard,
-		ArrowRight
+		ArrowRight,
+		Zap,
+		Layers,
+		Calendar,
+		Trophy,
+		Eye
 	} from 'lucide-svelte';
 
 	interface Props {
@@ -72,6 +77,62 @@
 			category: 'Navegación',
 			icon: Video,
 			action: () => goto('/videos')
+		},
+		{
+			id: 'nav-analytics',
+			title: 'Analítica Global & Gráficos',
+			subtitle: 'Correlaciones, ingresos por plataforma y KPIs globales',
+			category: 'Navegación',
+			icon: Sparkles,
+			action: () => goto('/analytics')
+		},
+		{
+			id: 'nav-views',
+			title: 'Vistas SQL & Materializadas',
+			subtitle: 'Explorador principal de tablas agregadas y vistas SQL',
+			category: 'Navegación',
+			icon: Database,
+			action: () => goto('/views')
+		},
+		{
+			id: 'nav-view-creator-perf',
+			title: 'Vista: Rendimiento de Creadores',
+			subtitle: 'mv_creator_performance_summary • Streams, videos y revenue combinado',
+			category: 'Navegación',
+			icon: Zap,
+			action: () => goto('/views?tab=mv_creator_performance')
+		},
+		{
+			id: 'nav-view-platform-perf',
+			title: 'Vista: Rendimiento por Plataforma',
+			subtitle: 'mv_platform_performance_summary • Comparativa Live vs Video',
+			category: 'Navegación',
+			icon: Layers,
+			action: () => goto('/views?tab=mv_platform_performance')
+		},
+		{
+			id: 'nav-view-monthly',
+			title: 'Vista: Resumen Mensual de Ingresos',
+			subtitle: 'mv_monthly_revenue_summary • Rollup cronológico mensual',
+			category: 'Navegación',
+			icon: Calendar,
+			action: () => goto('/views?tab=mv_monthly_revenue')
+		},
+		{
+			id: 'nav-view-rankings',
+			title: 'Vista: Leaderboard & Rankings SQL',
+			subtitle: 'v_creator_overall_rankings • DENSE_RANK() por ingresos y CCV',
+			category: 'Navegación',
+			icon: Trophy,
+			action: () => goto('/views?tab=v_creator_rankings')
+		},
+		{
+			id: 'nav-view-video-roi',
+			title: 'Vista: Detalle de Videos & ROI',
+			subtitle: 'v_video_publication_details • Beneficio neto, ROI % y RPM',
+			category: 'Navegación',
+			icon: Eye,
+			action: () => goto('/views?tab=v_video_details')
 		},
 		{
 			id: 'nav-raw-data',

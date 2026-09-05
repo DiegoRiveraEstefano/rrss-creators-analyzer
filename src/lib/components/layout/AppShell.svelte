@@ -81,10 +81,6 @@
 			callback: () => goto('/tenants')
 		}
 	]);
-
-	onMount(async () => {
-		await Promise.all([authStore.init(), tenantStore.init()]);
-	});
 </script>
 
 <div class="flex min-h-screen bg-[#090D16] text-[#F9FAFB]">

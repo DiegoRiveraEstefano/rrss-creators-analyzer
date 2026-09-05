@@ -79,24 +79,24 @@
 
 	{#if value.preset === 'custom'}
 		<div class="grid grid-cols-2 gap-2 pt-1">
-			<div>
-				<label class="block text-[11px] text-gray-400 mb-1">Desde:</label>
+			<label class="block text-[11px] text-gray-400">
+				Desde:
 				<input
 					type="date"
 					value={value.from || ''}
 					onchange={(e) => handleCustomDateChange('from', (e.target as HTMLInputElement).value)}
-					class="w-full rounded-lg bg-[#111827] border border-[#2D3748] px-2.5 py-1 text-xs text-white focus:border-indigo-500 focus:outline-none"
+					class="mt-1 w-full rounded-lg bg-[#111827] border border-[#2D3748] px-2.5 py-1 text-xs text-white focus:border-indigo-500 focus:outline-none"
 				/>
-			</div>
-			<div>
-				<label class="block text-[11px] text-gray-400 mb-1">Hasta:</label>
+			</label>
+			<label class="block text-[11px] text-gray-400">
+				Hasta:
 				<input
 					type="date"
 					value={value.to || ''}
 					onchange={(e) => handleCustomDateChange('to', (e.target as HTMLInputElement).value)}
-					class="w-full rounded-lg bg-[#111827] border border-[#2D3748] px-2.5 py-1 text-xs text-white focus:border-indigo-500 focus:outline-none"
+					class="mt-1 w-full rounded-lg bg-[#111827] border border-[#2D3748] px-2.5 py-1 text-xs text-white focus:border-indigo-500 focus:outline-none"
 				/>
-			</div>
+			</label>
 		</div>
 	{/if}
 </div>

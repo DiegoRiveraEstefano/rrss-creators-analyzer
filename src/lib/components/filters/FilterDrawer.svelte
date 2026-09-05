@@ -55,7 +55,7 @@
 		role="presentation"
 	>
 		<!-- Drawer Panel -->
-		<aside
+		<div
 			class="flex h-full w-full {widthClasses[width]} flex-col border-[#2D3748] bg-[#0D131F] shadow-2xl transition-all duration-300 {position === 'left'
 				? 'border-r animate-in slide-in-from-left'
 				: 'border-l animate-in slide-in-from-right'}"
@@ -136,6 +136,6 @@
 					</Button>
 				</div>
 			</div>
-		</aside>
+		</div>
 	</div>
 {/if}
