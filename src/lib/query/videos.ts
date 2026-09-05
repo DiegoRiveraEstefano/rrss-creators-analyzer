@@ -1,31 +1,32 @@
 import { queryOptions } from '@tanstack/svelte-query';
-import { videoService, type PublishedVideo } from '$lib/services/videoService';
+import { videoService, type VideoWithDetails } from '$lib/services/videoService';
 
 export const videosQueryKeys = {
 	all: ['videos'] as const,
 	lists: () => [...videosQueryKeys.all, 'list'] as const,
-	byOrg: (orgId: string | undefined) => [...videosQueryKeys.lists(), 'org', orgId] as const,
-	byCreator: (creatorId: string | undefined) => [...videosQueryKeys.lists(), 'creator', creatorId] as const
+	list: (orgId: string | undefined, creatorId?: string | null) =>
+		[...videosQueryKeys.lists(), { orgId, creatorId }] as const,
+	detail: (id: string | undefined) => [...videosQueryKeys.all, 'detail', id] as const
 };
 
-export function videosByOrgQueryOptions(orgId: string | undefined, limit = 100) {
+export function videosQueryOptions(orgId: string | undefined, creatorId?: string | null, limit = 100) {
 	return queryOptions({
-		queryKey: [...videosQueryKeys.byOrg(orgId), { limit }],
-		queryFn: async (): Promise<PublishedVideo[]> => {
+		queryKey: [...videosQueryKeys.list(orgId, creatorId), { limit }],
+		queryFn: async (): Promise<VideoWithDetails[]> => {
 			if (!orgId) return [];
-			return videoService.getVideosByOrganization(orgId, limit);
+			return videoService.getVideos(orgId, creatorId, limit);
 		},
 		enabled: !!orgId
 	});
 }
 
-export function videosByCreatorQueryOptions(creatorId: string | undefined, limit = 100) {
+export function videoDetailQueryOptions(id: string | undefined) {
 	return queryOptions({
-		queryKey: [...videosQueryKeys.byCreator(creatorId), { limit }],
-		queryFn: async (): Promise<PublishedVideo[]> => {
-			if (!creatorId) return [];
-			return videoService.getVideosByCreator(creatorId, limit);
+		queryKey: videosQueryKeys.detail(id),
+		queryFn: async (): Promise<VideoWithDetails | null> => {
+			if (!id) return null;
+			return videoService.getVideoById(id);
 		},
-		enabled: !!creatorId
+		enabled: !!id
 	});
 }

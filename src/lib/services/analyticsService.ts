@@ -1,7 +1,6 @@
 import { supabase } from '$lib/supabase/client';
 import type { Database } from '$lib/supabase/database.types';
 
-import type { PublishedVideo } from './videoService';
 export type StreamingSession = Database['public']['Tables']['streaming_sessions']['Row'];
 
 export interface AnalyticsSummary {
@@ -47,19 +46,33 @@ export const analyticsService = {
 	async getSummary(organizationId: string, creatorId?: string | null): Promise<AnalyticsSummary> {
 		const sessions = await this.getSessions(organizationId, creatorId);
 
-		// Videos métricas
-		let videosQuery = supabase
-			.from('published_videos')
-			.select('*')
+		// Métricas de videos y publicaciones
+		let vPubsQuery = supabase
+			.from('video_publications')
+			.select('views_count, estimated_revenue')
+			.eq('organization_id', organizationId);
+
+		let videosCountQuery = supabase
+			.from('videos')
+			.select('id')
 			.eq('organization_id', organizationId);
 
 		if (creatorId) {
-			videosQuery = videosQuery.eq('creator_id', creatorId);
+			vPubsQuery = vPubsQuery.eq('creator_id', creatorId);
+			videosCountQuery = videosCountQuery.eq('creator_id', creatorId);
 		}
 
-		const { data: videos } = await videosQuery;
-		const totalVideoViews = (videos || []).reduce((acc, v) => acc + (v.views_count || 0), 0);
-		const totalVideoEarnings = (videos || []).reduce((acc, v) => acc + Number(v.estimated_revenue || 0), 0);
+		const [{ data: publications }, { data: videosList }] = await Promise.all([
+			vPubsQuery,
+			videosCountQuery
+		]);
+
+		const totalVideoViews = (publications || []).reduce((acc, v) => acc + (v.views_count || 0), 0);
+		const totalVideoEarnings = (publications || []).reduce(
+			(acc, v) => acc + Number(v.estimated_revenue || 0),
+			0
+		);
+		const totalVideos = videosList?.length || 0;
 
 		// Alertas activas
 		let alertsQuery = supabase
@@ -95,7 +108,7 @@ export const analyticsService = {
 			earningsPerHour,
 			totalVideoViews,
 			totalVideoEarnings,
-			totalVideos: videos?.length || 0
+			totalVideos
 		};
 	},
 
