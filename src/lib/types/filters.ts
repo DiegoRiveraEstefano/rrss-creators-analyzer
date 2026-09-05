@@ -62,3 +62,60 @@ export interface RosterFilterState {
 	statuses: ('active' | 'inactive' | 'paused')[];
 	minFollowers?: number | null;
 }
+
+export interface ViewsFilterState {
+	creatorPerf: {
+		platforms: PlatformType[];
+		minStreams?: number | null;
+		minCombinedRevenue?: number | null;
+		minAvgCcv?: number | null;
+	};
+	platformPerf: {
+		platforms: PlatformType[];
+		minTotalHours?: number | null;
+		minCombinedRevenue?: number | null;
+	};
+	platformCategory: {
+		platforms: PlatformType[];
+		minSessions?: number | null;
+		minCcv?: number | null;
+		minRevenue?: number | null;
+		categories: string[];
+	};
+	monthlyRevenue: {
+		dateRange: DateRangeFilterValue;
+		minMonthlyRevenue?: number | null;
+		minStreamHours?: number | null;
+	};
+	contentType: {
+		platforms: PlatformType[];
+		publicationTypes: string[];
+		minViews?: number | null;
+		minEngagementRate?: number | null;
+		minRevenue?: number | null;
+	};
+	creatorRankings: {
+		platforms: PlatformType[];
+		topN?: number | null;
+		minAvgCcv?: number | null;
+	};
+	dailyStream: {
+		dateRange: DateRangeFilterValue;
+		platforms: PlatformType[];
+		minEarningsPerHour?: number | null;
+		minAvgCcv?: number | null;
+	};
+	videoDetails: {
+		platforms: PlatformType[];
+		publicationTypes: string[];
+		categories: string[];
+		minRoiPercentage?: number | null;
+		minViews?: number | null;
+		minRevenue?: number | null;
+	};
+	recentActivity: {
+		dateRange: DateRangeFilterValue;
+		activityTypes: ('stream' | 'video' | 'alert')[];
+		platforms: PlatformType[];
+	};
+}

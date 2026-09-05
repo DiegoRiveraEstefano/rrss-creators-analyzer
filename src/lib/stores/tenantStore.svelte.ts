@@ -6,7 +6,7 @@ class TenantStore {
 	currentOrg = $state<OrganizationWithStats | null>(null);
 	creators = $state<CreatorWithChannels[]>([]);
 	selectedCreatorId = $state<string | null>(null);
-	isLoading = $state<boolean>(true);
+	isLoading = $state<boolean>(false);
 
 	selectedCreator = $derived(
 		this.selectedCreatorId
@@ -15,37 +15,42 @@ class TenantStore {
 	);
 
 	async init() {
+		await this.loadOrganizations();
+	}
+
+	async loadOrganizations() {
 		this.isLoading = true;
 		try {
-			await this.loadOrganizations();
-			if (this.organizations.length > 0 && !this.currentOrg) {
-				this.currentOrg = this.organizations[0];
+			this.organizations = await tenantService.getOrganizations();
+			if (this.organizations.length > 0) {
+				if (!this.currentOrg || !this.organizations.some((o) => o.id === this.currentOrg?.id)) {
+					this.currentOrg = this.organizations[0];
+				}
 				await this.loadCreators();
+			} else {
+				this.currentOrg = null;
+				this.creators = [];
 			}
 		} catch (error) {
-			console.error('Error initializing tenant store:', error);
+			console.warn('Error loading organizations:', error);
+			this.organizations = [];
+			this.currentOrg = null;
+			this.creators = [];
 		} finally {
 			this.isLoading = false;
 		}
 	}
 
-	async loadOrganizations() {
-		try {
-			this.organizations = await tenantService.getOrganizations();
-			if (this.organizations.length > 0 && !this.currentOrg) {
-				this.currentOrg = this.organizations[0];
-			}
-		} catch (error) {
-			console.error('Error loading organizations:', error);
-		}
-	}
-
 	async loadCreators() {
-		if (!this.currentOrg) return;
+		if (!this.currentOrg) {
+			this.creators = [];
+			return;
+		}
 		try {
 			this.creators = await creatorService.getCreators(this.currentOrg.id);
 		} catch (error) {
 			console.error('Error loading creators:', error);
+			this.creators = [];
 		}
 	}
 
@@ -76,6 +81,14 @@ class TenantStore {
 
 	selectCreator(creatorId: string | null) {
 		this.selectedCreatorId = creatorId;
+	}
+
+	reset() {
+		this.organizations = [];
+		this.currentOrg = null;
+		this.creators = [];
+		this.selectedCreatorId = null;
+		this.isLoading = false;
 	}
 }
 

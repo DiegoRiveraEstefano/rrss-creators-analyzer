@@ -21,7 +21,7 @@
 	);
 
 	onMount(async () => {
-		await Promise.all([authStore.init(), tenantStore.init()]);
+		await authStore.init();
 	});
 
 	// Middleware reactivo de protección y redirección de rutas
