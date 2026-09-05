@@ -6,24 +6,39 @@
 -- 1. Funciones auxiliares de seguridad (SECURITY DEFINER para consultar membresías)
 
 CREATE OR REPLACE FUNCTION public.get_user_org_ids()
-RETURNS SETOF UUID AS $$
+RETURNS SETOF UUID
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
     SELECT organization_id 
     FROM public.organization_members 
     WHERE user_id = auth.uid();
-$$ LANGUAGE sql STABLE SECURITY DEFINER;
+$$;
 
 CREATE OR REPLACE FUNCTION public.is_org_member(check_org_id UUID)
-RETURNS BOOLEAN AS $$
+RETURNS BOOLEAN
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
     SELECT EXISTS (
         SELECT 1 
         FROM public.organization_members 
         WHERE organization_id = check_org_id 
           AND user_id = auth.uid()
     );
-$$ LANGUAGE sql STABLE SECURITY DEFINER;
+$$;
 
 CREATE OR REPLACE FUNCTION public.is_org_admin(check_org_id UUID)
-RETURNS BOOLEAN AS $$
+RETURNS BOOLEAN
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
     SELECT EXISTS (
         SELECT 1 
         FROM public.organization_members 
@@ -31,15 +46,20 @@ RETURNS BOOLEAN AS $$
           AND user_id = auth.uid()
           AND role IN ('agency_owner', 'manager')
     );
-$$ LANGUAGE sql STABLE SECURITY DEFINER;
+$$;
 
 CREATE OR REPLACE FUNCTION public.get_user_creator_ids(check_org_id UUID)
-RETURNS SETOF UUID AS $$
+RETURNS SETOF UUID
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
     SELECT id 
     FROM public.creators 
     WHERE organization_id = check_org_id 
       AND user_id = auth.uid();
-$$ LANGUAGE sql STABLE SECURITY DEFINER;
+$$;
 
 -- 2. Habilitar RLS en todas las tablas públicas
 ALTER TABLE public.organizations ENABLE ROW LEVEL SECURITY;

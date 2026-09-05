@@ -97,9 +97,13 @@ CREATE INDEX idx_mv_category_org ON public.mv_platform_category_stats(organizati
 
 -- 4. Función para refrescar las vistas materializadas
 CREATE OR REPLACE FUNCTION public.refresh_creator_analytics_mv()
-RETURNS void AS $$
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
 BEGIN
     REFRESH MATERIALIZED VIEW CONCURRENTLY public.mv_creator_performance_summary;
     REFRESH MATERIALIZED VIEW public.mv_platform_category_stats;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$;
