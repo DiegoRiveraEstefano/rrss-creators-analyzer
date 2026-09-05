@@ -8,7 +8,8 @@
 	import Button from '$lib/components/ui/Button.svelte';
 	import Input from '$lib/components/ui/Input.svelte';
 	import Select from '$lib/components/ui/Select.svelte';
-	import { Video, Plus, AlertCircle, Radio, Link2, Film, Sparkles, User } from 'lucide-svelte';
+	import Badge from '$lib/components/ui/Badge.svelte';
+	import { Video, Plus, AlertCircle, Radio, Link2, Film, Sparkles, Trash2 } from 'lucide-svelte';
 
 	interface Props {
 		isOpen: boolean;
@@ -28,8 +29,21 @@
 		onAdded
 	}: Props = $props();
 
+	type PublicationDraft = {
+		platform: PlatformType;
+		publication_type: string;
+		post_url: string;
+		thumbnail_url: string;
+		published_at: string;
+		views_count: number;
+		likes_count: number;
+		comments_count: number;
+		shares_count: number;
+		estimated_revenue: number;
+	};
+
 	// Tab activa del formulario
-	let activeTab = $state<'video' | 'publication' | 'relation'>('video');
+	let activeTab = $state<'video' | 'publications' | 'relation'>('video');
 
 	// Creador seleccionado
 	let selectedCreatorId = $state('');
@@ -44,17 +58,21 @@
 	let durationMinutes = $state(18);
 	let productionCost = $state(0);
 
-	// 2. Entidad Publicación Inicial
-	let platform = $state<PlatformType>('youtube');
-	let publicationType = $state('standard');
-	let postUrl = $state('');
-	let thumbnailUrl = $state('');
-	let publishedAt = $state(new Date().toISOString().substring(0, 16));
-	let viewsCount = $state(125000);
-	let likesCount = $state(8400);
-	let commentsCount = $state(620);
-	let sharesCount = $state(210);
-	let estimatedRevenue = $state(320);
+	// 2. Multi-Publicaciones
+	let publications = $state<PublicationDraft[]>([
+		{
+			platform: 'youtube',
+			publication_type: 'standard',
+			post_url: '',
+			thumbnail_url: '',
+			published_at: new Date().toISOString().substring(0, 16),
+			views_count: 125000,
+			likes_count: 8400,
+			comments_count: 620,
+			shares_count: 210,
+			estimated_revenue: 320
+		}
+	]);
 
 	// 3. Entidad Relación / Trazabilidad
 	let hasRelation = $state(false);
@@ -106,6 +124,36 @@
 		}
 	}
 
+	function addPublication() {
+		const existingPlatforms = new Set(publications.map((p) => p.platform));
+		let nextPlatform: PlatformType = 'tiktok';
+		if (!existingPlatforms.has('tiktok')) nextPlatform = 'tiktok';
+		else if (!existingPlatforms.has('youtube')) nextPlatform = 'youtube';
+		else if (!existingPlatforms.has('twitch')) nextPlatform = 'twitch';
+		else if (!existingPlatforms.has('kick')) nextPlatform = 'kick';
+
+		publications.push({
+			platform: nextPlatform,
+			publication_type: nextPlatform === 'tiktok' ? 'short/reel' : 'standard',
+			post_url: '',
+			thumbnail_url: '',
+			published_at: new Date().toISOString().substring(0, 16),
+			views_count: 50000,
+			likes_count: 3200,
+			comments_count: 140,
+			shares_count: 90,
+			estimated_revenue: 80
+		});
+	}
+
+	function removePublication(index: number) {
+		if (publications.length <= 1) {
+			errorMessage = 'Debe haber al menos una plataforma de publicación asociada.';
+			return;
+		}
+		publications.splice(index, 1);
+	}
+
 	async function handleSubmit(e: SubmitEvent) {
 		e.preventDefault();
 		const effectiveCreatorId = selectedCreatorId || creatorId || availableCreators[0]?.id;
@@ -119,6 +167,12 @@
 		if (!organizationId || !effectiveCreatorId) {
 			errorMessage = 'Por favor selecciona un creador para asociar el video.';
 			activeTab = 'video';
+			return;
+		}
+
+		if (publications.length === 0) {
+			errorMessage = 'Debes configurar al menos una plataforma de publicación.';
+			activeTab = 'publications';
 			return;
 		}
 
@@ -145,18 +199,18 @@
 					production_cost: Number(productionCost) || 0,
 					status: 'published'
 				},
-				publication: {
-					platform,
-					publication_type: publicationType,
-					post_url: postUrl.trim() || null,
-					thumbnail_url: thumbnailUrl.trim() || null,
-					published_at: new Date(publishedAt).toISOString(),
-					views_count: Number(viewsCount) || 0,
-					likes_count: Number(likesCount) || 0,
-					comments_count: Number(commentsCount) || 0,
-					shares_count: Number(sharesCount) || 0,
-					estimated_revenue: Number(estimatedRevenue) || 0
-				},
+				publications: publications.map((p) => ({
+					platform: p.platform,
+					publication_type: p.publication_type || 'standard',
+					post_url: p.post_url?.trim() || null,
+					thumbnail_url: p.thumbnail_url?.trim() || null,
+					published_at: new Date(p.published_at).toISOString(),
+					views_count: Number(p.views_count) || 0,
+					likes_count: Number(p.likes_count) || 0,
+					comments_count: Number(p.comments_count) || 0,
+					shares_count: Number(p.shares_count) || 0,
+					estimated_revenue: Number(p.estimated_revenue) || 0
+				})),
 				relation:
 					hasRelation && selectedSessionId
 						? {
@@ -174,8 +228,20 @@
 			title = '';
 			internalName = '';
 			description = '';
-			postUrl = '';
-			thumbnailUrl = '';
+			publications = [
+				{
+					platform: 'youtube',
+					publication_type: 'standard',
+					post_url: '',
+					thumbnail_url: '',
+					published_at: new Date().toISOString().substring(0, 16),
+					views_count: 125000,
+					likes_count: 8400,
+					comments_count: 620,
+					shares_count: 210,
+					estimated_revenue: 320
+				}
+			];
 			hasRelation = false;
 			selectedSessionId = '';
 			relationNotes = '';
@@ -212,18 +278,18 @@
 				: 'text-gray-400 hover:text-white'}"
 		>
 			<Film size={14} />
-			<span>1. Activo de Video</span>
+			<span>1. Activo Master</span>
 		</button>
 
 		<button
 			type="button"
-			onclick={() => (activeTab = 'publication')}
-			class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium transition-colors {activeTab === 'publication'
+			onclick={() => (activeTab = 'publications')}
+			class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium transition-colors {activeTab === 'publications'
 				? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 font-semibold'
 				: 'text-gray-400 hover:text-white'}"
 		>
 			<Sparkles size={14} />
-			<span>2. Publicación & Stats</span>
+			<span>2. Multi-Plataformas ({publications.length})</span>
 		</button>
 
 		<button
@@ -308,81 +374,131 @@
 			</div>
 		{/if}
 
-		<!-- TAB 2: Publication & Metrics -->
-		{#if activeTab === 'publication'}
-			<div class="space-y-3 animate-in fade-in duration-100">
-				<div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-					<Select
-						label="Plataforma de Publicación"
-						options={[
-							{ value: 'youtube', label: 'YouTube' },
-							{ value: 'tiktok', label: 'TikTok' },
-							{ value: 'twitch', label: 'Twitch (VOD / Clip)' },
-							{ value: 'kick', label: 'Kick (VOD)' }
-						]}
-						bind:value={platform}
-					/>
+		<!-- TAB 2: Multi-Publicaciones -->
+		{#if activeTab === 'publications'}
+			<div class="space-y-4 animate-in fade-in duration-100 max-h-[460px] overflow-y-auto pr-1">
+				<div class="flex items-center justify-between">
+					<div>
+						<span class="text-xs font-semibold text-white">Publicaciones en Plataformas</span>
+						<p class="text-[11px] text-gray-400">
+							Agrega una o más redes donde se subirá o distribuirá este contenido.
+						</p>
+					</div>
 
-					<Select
-						label="Formato / Tipo"
-						options={[
-							{ value: 'standard', label: 'Video Estándar (Horizontal)' },
-							{ value: 'short/reel', label: 'Short / Reel (Vertical)' },
-							{ value: 'vod', label: 'VOD Completo' },
-							{ value: 'clip', label: 'Clip Corto' }
-						]}
-						bind:value={publicationType}
-					/>
-
-					<Input
-						label="Fecha y Hora de Publicación"
-						type="datetime-local"
-						bind:value={publishedAt}
-						required
-					/>
+					<Button type="button" variant="secondary" size="sm" onclick={addPublication}>
+						<Plus size={14} />
+						<span>Agregar Otra Plataforma</span>
+					</Button>
 				</div>
 
-				<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-					<Input
-						label="URL Pública del Video / Post"
-						placeholder="https://youtube.com/watch?v=..."
-						bind:value={postUrl}
-					/>
+				{#each publications as pub, index}
+					<div class="rounded-xl border border-[#1F2937] bg-[#0A0F1D] p-3.5 space-y-3 relative">
+						<div class="flex items-center justify-between border-b border-[#1F2937]/70 pb-2">
+							<div class="flex items-center gap-2">
+								<Badge
+									variant={pub.platform === 'youtube' ? 'danger' : pub.platform === 'tiktok' ? 'neutral' : pub.platform === 'twitch' ? 'purple' : 'success'}
+									size="sm"
+									class="uppercase font-mono"
+								>
+									{pub.platform}
+								</Badge>
+								<span class="text-xs font-semibold text-gray-200">
+									Publicación #{index + 1}
+								</span>
+							</div>
 
-					<Input
-						label="URL de Miniatura (Thumbnail)"
-						placeholder="https://..."
-						bind:value={thumbnailUrl}
-					/>
-				</div>
+							{#if publications.length > 1}
+								<button
+									type="button"
+									onclick={() => removePublication(index)}
+									class="text-gray-500 hover:text-rose-400 transition-colors p-1"
+									title="Eliminar esta publicación"
+								>
+									<Trash2 size={14} />
+								</button>
+							{/if}
+						</div>
 
-				<div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-					<Input
-						label="Vistas (Views)"
-						type="number"
-						bind:value={viewsCount}
-						required
-					/>
+						<div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+							<Select
+								label="Plataforma de Publicación"
+								options={[
+									{ value: 'youtube', label: 'YouTube' },
+									{ value: 'tiktok', label: 'TikTok' },
+									{ value: 'twitch', label: 'Twitch (VOD / Clip)' },
+									{ value: 'kick', label: 'Kick (VOD)' }
+								]}
+								bind:value={pub.platform}
+							/>
 
-					<Input
-						label="Likes"
-						type="number"
-						bind:value={likesCount}
-					/>
+							<Select
+								label="Formato / Tipo"
+								options={[
+									{ value: 'standard', label: 'Video Estándar (Horizontal)' },
+									{ value: 'short/reel', label: 'Short / Reel (Vertical)' },
+									{ value: 'vod', label: 'VOD Completo' },
+									{ value: 'clip', label: 'Clip Corto' }
+								]}
+								bind:value={pub.publication_type}
+							/>
 
-					<Input
-						label="Comentarios"
-						type="number"
-						bind:value={commentsCount}
-					/>
+							<Input
+								label="Fecha y Hora de Publicación"
+								type="datetime-local"
+								bind:value={pub.published_at}
+								required
+							/>
+						</div>
 
-					<Input
-						label="Ingresos ($)"
-						type="number"
-						step="0.01"
-						bind:value={estimatedRevenue}
-					/>
-				</div>
+						<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+							<Input
+								label="URL Pública del Video / Post"
+								placeholder="https://youtube.com/watch?v=..."
+								bind:value={pub.post_url}
+							/>
+
+							<Input
+								label="URL de Miniatura (Thumbnail)"
+								placeholder="https://..."
+								bind:value={pub.thumbnail_url}
+							/>
+						</div>
+
+						<div class="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
+							<Input
+								label="Vistas (Views)"
+								type="number"
+								bind:value={pub.views_count}
+								required
+							/>
+
+							<Input
+								label="Likes"
+								type="number"
+								bind:value={pub.likes_count}
+							/>
+
+							<Input
+								label="Comentarios"
+								type="number"
+								bind:value={pub.comments_count}
+							/>
+
+							<Input
+								label="Shares"
+								type="number"
+								bind:value={pub.shares_count}
+							/>
+
+							<Input
+								label="Ingresos ($)"
+								type="number"
+								step="0.01"
+								bind:value={pub.estimated_revenue}
+							/>
+						</div>
+					</div>
+				{/each}
 			</div>
 		{/if}
 
@@ -452,7 +568,7 @@
 						type="button"
 						variant="secondary"
 						size="sm"
-						onclick={() => (activeTab = activeTab === 'relation' ? 'publication' : 'video')}
+						onclick={() => (activeTab = activeTab === 'relation' ? 'publications' : 'video')}
 					>
 						Anterior
 					</Button>
@@ -462,7 +578,7 @@
 						type="button"
 						variant="secondary"
 						size="sm"
-						onclick={() => (activeTab = activeTab === 'video' ? 'publication' : 'relation')}
+						onclick={() => (activeTab = activeTab === 'video' ? 'publications' : 'relation')}
 					>
 						Siguiente Paso
 					</Button>

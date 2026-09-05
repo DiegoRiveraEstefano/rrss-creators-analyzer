@@ -179,6 +179,31 @@ export const analyticsService = {
 		return data;
 	},
 
+	async updateSession(
+		id: string,
+		updates: Partial<Database['public']['Tables']['streaming_sessions']['Update']>
+	): Promise<StreamingSession> {
+		const { data, error } = await supabase
+			.from('streaming_sessions')
+			.update(updates)
+			.eq('id', id)
+			.select()
+			.single();
+
+		if (error) throw error;
+		return data;
+	},
+
+	async deleteSession(id: string): Promise<boolean> {
+		const { error } = await supabase
+			.from('streaming_sessions')
+			.delete()
+			.eq('id', id);
+
+		if (error) throw error;
+		return true;
+	},
+
 	// =========================================================================
 	// VISTAS SEGURAS ENVOLVENTES (WRAPPER VIEWS CON RLS Y SECURITY_INVOKER)
 	// =========================================================================
