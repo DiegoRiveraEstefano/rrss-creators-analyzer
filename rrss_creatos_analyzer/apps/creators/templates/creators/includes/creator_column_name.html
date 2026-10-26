@@ -1,0 +1,15 @@
+<div class="d-flex align-items-center gap-2">
+  {% if record.avatar_url %}
+    <img src="{{ record.avatar_url }}" alt="{{ record.display_name }}" class="rounded-circle border" width="38" height="38" style="object-fit: cover;">
+  {% else %}
+    <div class="rounded-circle bg-primary-subtle text-primary fw-bold d-flex align-items-center justify-content-center" style="width: 38px; height: 38px; font-size: 14px;">
+      {{ record.display_name|slice:":2"|upper }}
+    </div>
+  {% endif %}
+  <div>
+    <a href="{% url 'creators:creator_detail' record.pk %}" class="fw-semibold text-decoration-none d-block">
+      {{ record.display_name }}
+    </a>
+    <small class="text-body-secondary font-monospace">@{{ record.handle }}</small>
+  </div>
+</div>

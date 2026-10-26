@@ -1,0 +1,11 @@
+{% if record.tier == 'elite' %}
+  <span class="badge bg-warning-subtle text-warning-emphasis border border-warning">Elite</span>
+{% elif record.tier == 'ambassador' %}
+  <span class="badge bg-info-subtle text-info-emphasis border border-info">Ambassador</span>
+{% elif record.tier == 'partner' %}
+  <span class="badge bg-primary-subtle text-primary-emphasis border border-primary">Partner</span>
+{% elif record.tier == 'standard' %}
+  <span class="badge bg-secondary-subtle text-secondary-emphasis border">Standard</span>
+{% else %}
+  <span class="badge bg-light text-dark border">Rookie</span>
+{% endif %}

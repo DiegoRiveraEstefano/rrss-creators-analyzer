@@ -1,0 +1,15 @@
+<div class="d-flex align-items-center gap-2">
+  <span class="badge {% if record.platform == 'twitch' %}text-bg-primary{% elif record.platform == 'youtube' %}text-bg-danger{% elif record.platform == 'kick' %}text-bg-success{% elif record.platform == 'tiktok' %}text-bg-dark{% else %}text-bg-secondary{% endif %}">
+    {{ record.get_platform_display }}
+  </span>
+  {% if record.is_primary %}
+    <span class="badge bg-warning-subtle text-warning-emphasis border border-warning" title="Canal Principal del Creador">
+      <i class="bi bi-star-fill text-warning"></i> Principal
+    </span>
+  {% endif %}
+  {% if record.is_monetized %}
+    <span class="badge text-bg-light border" title="Monetización Habilitada">
+      <i class="bi bi-currency-dollar text-success"></i>
+    </span>
+  {% endif %}
+</div>

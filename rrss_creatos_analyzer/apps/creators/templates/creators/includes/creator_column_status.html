@@ -1,0 +1,13 @@
+{% if record.status == 'active' %}
+  <span class="badge text-bg-success">Activo</span>
+{% elif record.status == 'paused' %}
+  <span class="badge text-bg-warning">En Pausa</span>
+{% elif record.status == 'probation' %}
+  <span class="badge text-bg-info">En Prueba</span>
+{% elif record.status == 'inactive' %}
+  <span class="badge text-bg-secondary">Inactivo</span>
+{% elif record.status == 'banned' %}
+  <span class="badge text-bg-danger">Baneado</span>
+{% else %}
+  <span class="badge text-bg-light border">{{ record.get_status_display }}</span>
+{% endif %}
