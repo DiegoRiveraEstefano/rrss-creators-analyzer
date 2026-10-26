@@ -1,0 +1,245 @@
+{% load static i18n compress %}
+
+<!DOCTYPE html>
+{% get_current_language as LANGUAGE_CODE %}
+<html lang="{{ LANGUAGE_CODE }}">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="x-ua-compatible" content="ie=edge" />
+    <title>
+      {% block title %}
+        RRSS Creators Analyzer
+      {% endblock title %}
+    </title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description"
+          content="Single-company streamer and content creator tracking and analytics platform." />
+    <meta name="author" content="Diego Rivera" />
+    <link rel="icon" href="{% static 'images/favicons/favicon.ico' %}" />
+    {% block css %}
+      <link rel="stylesheet"
+            href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.2.3/css/bootstrap.min.css"
+            integrity="sha512-SbiR/eusphKoMVVXysTKG/7VseWii+Y3FdHrt0EpKgpToZeemhqHeZeLWLhJutz/2ut2Vw1uQEj2MbRF+TVBUA=="
+            crossorigin="anonymous"
+            referrerpolicy="no-referrer" />
+      {% compress css %}
+        <link href="{% static 'css/project.css' %}" rel="stylesheet" />
+      {% endcompress %}
+    {% endblock css %}
+    {% block javascript %}
+      <script defer
+              src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.2.3/js/bootstrap.bundle.min.js"
+              crossorigin="anonymous"
+              referrerpolicy="no-referrer"></script>
+      {% compress js %}
+        <script defer src="{% static 'js/project.js' %}"></script>
+      {% endcompress %}
+    {% endblock javascript %}
+  </head>
+  <body class="{% block bodyclass %}bg-light{% endblock bodyclass %}">
+    {% block body %}
+      <header class="mb-3">
+        <nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm"
+             aria-label="Main navigation">
+          <div class="container-fluid">
+            <a class="navbar-brand fw-semibold" href="{% url 'home' %}">RRSS Creators Analyzer</a>
+            <button class="navbar-toggler"
+                    type="button"
+                    data-bs-toggle="collapse"
+                    data-bs-target="#navbarSupportedContent"
+                    aria-controls="navbarSupportedContent"
+                    aria-expanded="false"
+                    aria-label="Toggle navigation">
+              <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarSupportedContent">
+              <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                <li class="nav-item">
+                  <a class="nav-link" href="{% url 'home' %}">{% translate "Home" %}</a>
+                </li>
+                {% if request.user.is_authenticated %}
+                  <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle"
+                       href="#"
+                       id="navRosterDropdown"
+                       role="button"
+                       data-bs-toggle="dropdown"
+                       aria-expanded="false">{% translate "Roster & Channels" %}</a>
+                    <ul class="dropdown-menu" aria-labelledby="navRosterDropdown">
+                      <li>
+                        <a class="dropdown-item" href="{% url 'creators:creator_list' %}">{% translate "Creators" %}</a>
+                      </li>
+                      <li>
+                        <a class="dropdown-item" href="{% url 'creators:channel_list' %}">{% translate "Channels" %}</a>
+                      </li>
+                      <li>
+                        <a class="dropdown-item" href="{% url 'creators:snapshot_list' %}">{% translate "Channel Snapshots" %}</a>
+                      </li>
+                      <li>
+                        <hr class="dropdown-divider" />
+                      </li>
+                      <li>
+                        <a class="dropdown-item" href="{% url 'contracts:contract_list' %}">{% translate "Contracts" %}</a>
+                      </li>
+                    </ul>
+                  </li>
+                  <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle"
+                       href="#"
+                       id="navContentDropdown"
+                       role="button"
+                       data-bs-toggle="dropdown"
+                       aria-expanded="false">{% translate "Streams & Videos" %}</a>
+                    <ul class="dropdown-menu" aria-labelledby="navContentDropdown">
+                      <li>
+                        <a class="dropdown-item" href="{% url 'streams:session_list' %}">{% translate "Streaming Sessions" %}</a>
+                      </li>
+                      <li>
+                        <a class="dropdown-item" href="{% url 'streams:segment_list' %}">{% translate "Session Segments" %}</a>
+                      </li>
+                      <li>
+                        <hr class="dropdown-divider" />
+                      </li>
+                      <li>
+                        <a class="dropdown-item" href="{% url 'videos:video_list' %}">{% translate "Videos" %}</a>
+                      </li>
+                      <li>
+                        <a class="dropdown-item" href="{% url 'videos:publication_list' %}">{% translate "Video Publications" %}</a>
+                      </li>
+                      <li>
+                        <a class="dropdown-item" href="{% url 'videos:relation_list' %}">{% translate "Video Relations" %}</a>
+                      </li>
+                    </ul>
+                  </li>
+                  <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle"
+                       href="#"
+                       id="navBusinessDropdown"
+                       role="button"
+                       data-bs-toggle="dropdown"
+                       aria-expanded="false">{% translate "Commercial & Analytics" %}</a>
+                    <ul class="dropdown-menu" aria-labelledby="navBusinessDropdown">
+                      <li>
+                        <a class="dropdown-item" href="{% url 'campaigns:campaign_list' %}">{% translate "Sponsor Campaigns" %}</a>
+                      </li>
+                      <li>
+                        <a class="dropdown-item" href="{% url 'campaigns:deliverable_list' %}">{% translate "Campaign Deliverables" %}</a>
+                      </li>
+                      <li>
+                        <a class="dropdown-item" href="{% url 'payouts:payout_list' %}">{% translate "Creator Payouts" %}</a>
+                      </li>
+                      <li>
+                        <hr class="dropdown-divider" />
+                      </li>
+                      <li>
+                        <a class="dropdown-item" href="{% url 'alerts:alert_list' %}">{% translate "Channel Alerts" %}</a>
+                      </li>
+                      <li>
+                        <a class="dropdown-item" href="{% url 'analytics:snapshot_list' %}">{% translate "Analytics Snapshots" %}</a>
+                      </li>
+                    </ul>
+                  </li>
+                  <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle"
+                       href="#"
+                       id="navOpsDropdown"
+                       role="button"
+                       data-bs-toggle="dropdown"
+                       aria-expanded="false">{% translate "Operations & Access" %}</a>
+                    <ul class="dropdown-menu" aria-labelledby="navOpsDropdown">
+                      <li>
+                        <a class="dropdown-item" href="{% url 'users:list' %}">{% translate "Users" %}</a>
+                      </li>
+                      <li>
+                        <a class="dropdown-item" href="{% url 'permissions:role_list' %}">{% translate "Role & Group Profiles" %}</a>
+                      </li>
+                      <li>
+                        <a class="dropdown-item" href="{% url 'members:invitation_list' %}">{% translate "Member Invitations" %}</a>
+                      </li>
+                      <li>
+                        <a class="dropdown-item" href="{% url 'members:assignment_list' %}">{% translate "Team Assignments" %}</a>
+                      </li>
+                      <li>
+                        <hr class="dropdown-divider" />
+                      </li>
+                      <li>
+                        <a class="dropdown-item" href="{% url 'imports:batch_list' %}">{% translate "Import Batches" %}</a>
+                      </li>
+                      <li>
+                        <a class="dropdown-item" href="{% url 'exports:export_list' %}">{% translate "Export Jobs" %}</a>
+                      </li>
+                      <li>
+                        <hr class="dropdown-divider" />
+                      </li>
+                      <li>
+                        <a class="dropdown-item" href="{% url 'audit:audit_list' %}">{% translate "Audit Trail" %}</a>
+                      </li>
+                      <li>
+                        <a class="dropdown-item" href="{% url 'logs:log_list' %}">{% translate "Application Logs" %}</a>
+                      </li>
+                      <li>
+                        <a class="dropdown-item" href="{% url 'monitor:health_list' %}">{% translate "Instance Health Checks" %}</a>
+                      </li>
+                      <li>
+                        <a class="dropdown-item" href="{% url 'backups:backup_list' %}">{% translate "Database Backups" %}</a>
+                      </li>
+                      <li>
+                        <a class="dropdown-item" href="{% url 'core:settings_list' %}">{% translate "Company Settings" %}</a>
+                      </li>
+                    </ul>
+                  </li>
+                {% endif %}
+                <li class="nav-item">
+                  <a class="nav-link" href="{% url 'about' %}">{% translate "About" %}</a>
+                </li>
+              </ul>
+              <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
+                {% if request.user.is_authenticated %}
+                  <li class="nav-item">
+                    <a class="nav-link"
+                       href="{% url 'users:detail' request.user.username %}">{% translate "My Profile" %}</a>
+                  </li>
+                  <li class="nav-item">
+                    <a class="nav-link" href="{% url 'account_logout' %}">{% translate "Sign Out" %}</a>
+                  </li>
+                {% else %}
+                  {% if ACCOUNT_ALLOW_REGISTRATION %}
+                    <li class="nav-item">
+                      <a id="sign-up-link" class="nav-link" href="{% url 'account_signup' %}">{% translate "Sign Up" %}</a>
+                    </li>
+                  {% endif %}
+                  <li class="nav-item">
+                    <a id="log-in-link" class="nav-link" href="{% url 'account_login' %}">{% translate "Sign In" %}</a>
+                  </li>
+                {% endif %}
+              </ul>
+            </div>
+          </div>
+        </nav>
+      </header>
+      <div class="container">
+        {% if messages %}
+          {% for message in messages %}
+            <div class="alert alert-dismissible {% if message.tags %}alert-{{ message.tags }}{% endif %}"
+                 role="alert">
+              {{ message }}
+              <button type="button"
+                      class="btn-close"
+                      data-bs-dismiss="alert"
+                      aria-label="Close"></button>
+            </div>
+          {% endfor %}
+        {% endif %}
+        {% block main %}
+          {% block content %}
+            <p>Use this document as a way to quick start any new project.</p>
+          {% endblock content %}
+        {% endblock main %}
+      </div>
+    {% endblock body %}
+    {% block modal %}
+    {% endblock modal %}
+    {% block inline_javascript %}
+    {% endblock inline_javascript %}
+  </body>
+</html>
