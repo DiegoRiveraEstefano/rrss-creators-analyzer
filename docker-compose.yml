@@ -1,0 +1,96 @@
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    image: rrss_creators_analyzer_web:latest
+    container_name: rrss_creators_analyzer_web
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings.production
+      - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY:-o0leIAkogjYB3XEZYQH5zMsgpZSjdK2iukGFtId7hN9hVL9ejkIDfm3FWE1NbPr4}
+      - DJANGO_ALLOWED_HOSTS=${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,0.0.0.0}
+      - DJANGO_ADMIN_URL=admin/
+      - DJANGO_SECURE_SSL_REDIRECT=False
+      - SQLITE_DB_PATH=/app/data/db.sqlite3
+      - DISKCACHE_DIR=/app/data/cache/diskcache
+      - REDIS_URL=redis://redis:6379/0
+      - WEB_CONCURRENCY=3
+    volumes:
+      - sqlite_data:/app/data
+      - media_data:/app/rrss_creatos_analyzer/media
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  celery_worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.celery
+    image: rrss_creators_analyzer_celery:latest
+    container_name: rrss_creators_analyzer_celery_worker
+    restart: unless-stopped
+    command: /start-worker.sh
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings.production
+      - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY:-o0leIAkogjYB3XEZYQH5zMsgpZSjdK2iukGFtId7hN9hVL9ejkIDfm3FWE1NbPr4}
+      - DJANGO_ADMIN_URL=admin/
+      - SQLITE_DB_PATH=/app/data/db.sqlite3
+      - DISKCACHE_DIR=/app/data/cache/diskcache
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_WORKER_CONCURRENCY=2
+      - CELERY_LOGLEVEL=INFO
+    volumes:
+      - sqlite_data:/app/data
+      - media_data:/app/rrss_creatos_analyzer/media
+    depends_on:
+      redis:
+        condition: service_healthy
+      web:
+        condition: service_started
+
+  celery_beat:
+    build:
+      context: .
+      dockerfile: Dockerfile.celery
+    image: rrss_creators_analyzer_celery:latest
+    container_name: rrss_creators_analyzer_celery_beat
+    restart: unless-stopped
+    command: /start-beat.sh
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings.production
+      - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY:-o0leIAkogjYB3XEZYQH5zMsgpZSjdK2iukGFtId7hN9hVL9ejkIDfm3FWE1NbPr4}
+      - DJANGO_ADMIN_URL=admin/
+      - SQLITE_DB_PATH=/app/data/db.sqlite3
+      - DISKCACHE_DIR=/app/data/cache/diskcache
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_LOGLEVEL=INFO
+    volumes:
+      - sqlite_data:/app/data
+      - media_data:/app/rrss_creatos_analyzer/media
+    depends_on:
+      redis:
+        condition: service_healthy
+      web:
+        condition: service_started
+
+  redis:
+    image: redis:7-alpine
+    container_name: rrss_creators_analyzer_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  sqlite_data:
+  media_data:
+  redis_data:
