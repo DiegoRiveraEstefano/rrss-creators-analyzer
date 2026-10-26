@@ -40,14 +40,11 @@ class Creator(BaseModel):
         db_index=True,
     )
     slug = models.SlugField(_("Slug"), max_length=120, unique=True)
-    legal_full_name = models.CharField(
-        _("Nombre Legal Completo"),
-        max_length=255,
-        blank=True,
+    language_code = models.CharField(
+        _("Idioma Principal"),
+        max_length=10,
+        default="es",
     )
-    contact_email = models.EmailField(_("Email de Contacto"), blank=True)
-    country_code = models.CharField(_("País (ISO-2)"), max_length=2, blank=True)
-    language_code = models.CharField(_("Idioma"), max_length=10, default="es")
     avatar_url = models.URLField(_("Avatar URL"), max_length=500, blank=True)
     banner_url = models.URLField(_("Banner URL"), max_length=500, blank=True)
     bio = models.TextField(_("Biografía"), blank=True)
@@ -55,13 +52,6 @@ class Creator(BaseModel):
         _("Categoría Principal"),
         max_length=120,
         default="General",
-    )
-    primary_platform = models.CharField(
-        _("Plataforma Principal"),
-        max_length=20,
-        choices=PlatformType.choices,
-        default=PlatformType.TWITCH,
-        db_index=True,
     )
     tier = models.CharField(
         _("Nivel / Tier"),
@@ -97,6 +87,131 @@ class Creator(BaseModel):
 
     def get_absolute_url(self) -> str:
         return reverse("creators:creator_detail", kwargs={"pk": self.pk})
+
+    @property
+    def primary_channel(self):
+        """Devuelve el canal marcado como principal o el primero registrado."""
+        prefetched = getattr(self, "_prefetched_objects_cache", {}).get("channels")
+        if prefetched is not None:
+            primary = next((c for c in prefetched if c.is_primary), None)
+            return primary or (prefetched[0] if prefetched else None)
+        return self.channels.filter(is_primary=True).first() or self.channels.first()
+
+    @property
+    def primary_platform(self) -> str:
+        """Plataforma del canal principal o cadena vacía si no tiene canales."""
+        channel = self.primary_channel
+        return channel.platform if channel else ""
+
+    @property
+    def get_primary_platform_display(self) -> str:
+        channel = self.primary_channel
+        return channel.get_platform_display() if channel else _("Sin canal")
+
+    @property
+    def active_channels(self):
+        prefetched = getattr(self, "_prefetched_objects_cache", {}).get("channels")
+        if prefetched is not None:
+            return [c for c in prefetched if c.status == ChannelStatus.ACTIVE]
+        return self.channels.filter(status=ChannelStatus.ACTIVE)
+
+    @property
+    def total_followers(self) -> int:
+        prefetched = getattr(self, "_prefetched_objects_cache", {}).get("channels")
+        if prefetched is not None:
+            return sum(c.followers_count for c in prefetched)
+        return sum(self.channels.values_list("followers_count", flat=True))
+
+    @property
+    def is_currently_live(self) -> bool:
+        prefetched = getattr(self, "_prefetched_objects_cache", {}).get("channels")
+        if prefetched is not None:
+            return any(c.is_live for c in prefetched)
+        return self.channels.filter(is_live=True).exists()
+
+
+@auditlog.register()
+class CreatorPersonalInfo(BaseModel):
+    creator = models.OneToOneField(
+        Creator,
+        on_delete=models.CASCADE,
+        related_name="personal_info",
+        verbose_name=_("Creador"),
+    )
+    legal_full_name = models.CharField(
+        _("Nombre Legal Completo"),
+        max_length=255,
+        blank=True,
+    )
+    tax_id = models.CharField(
+        _("Identificación Fiscal / DNI / NIF"),
+        max_length=50,
+        blank=True,
+    )
+    contact_email = models.EmailField(
+        _("Email Personal / Contacto Directo"),
+        blank=True,
+    )
+    phone_number = models.CharField(
+        _("Teléfono de Contacto"),
+        max_length=30,
+        blank=True,
+    )
+    birth_date = models.DateField(_("Fecha de Nacimiento"), null=True, blank=True)
+    country_code = models.CharField(
+        _("País de Residencia (ISO-2)"),
+        max_length=2,
+        blank=True,
+    )
+    city = models.CharField(_("Ciudad"), max_length=100, blank=True)
+    address = models.CharField(_("Dirección Postal"), max_length=255, blank=True)
+    postal_code = models.CharField(_("Código Postal"), max_length=20, blank=True)
+
+    # Contacto de emergencia
+    emergency_contact_name = models.CharField(
+        _("Contacto de Emergencia - Nombre"),
+        max_length=150,
+        blank=True,
+    )
+    emergency_contact_phone = models.CharField(
+        _("Contacto de Emergencia - Teléfono"),
+        max_length=30,
+        blank=True,
+    )
+    emergency_contact_relationship = models.CharField(
+        _("Contacto de Emergencia - Parentesco"),
+        max_length=60,
+        blank=True,
+    )
+
+    # Datos bancarios / Facturación
+    bank_name = models.CharField(_("Nombre del Banco"), max_length=100, blank=True)
+    bank_account_holder = models.CharField(
+        _("Titular de la Cuenta"),
+        max_length=255,
+        blank=True,
+    )
+    bank_account_iban = models.CharField(
+        _("IBAN / Nro. Cuenta"),
+        max_length=50,
+        blank=True,
+    )
+    bank_swift_bic = models.CharField(
+        _("Código SWIFT / BIC"),
+        max_length=20,
+        blank=True,
+    )
+
+    notes = models.TextField(_("Notas Confidenciales"), blank=True)
+
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = _("Datos Personales del Creador")
+        verbose_name_plural = _("Datos Personales de Creadores")
+
+    def __str__(self) -> str:
+        return f"Datos Personales: {self.creator.display_name}"
 
 
 @auditlog.register()
@@ -158,6 +273,11 @@ class Channel(BaseModel):
             models.UniqueConstraint(
                 fields=["creator", "platform", "platform_channel_id"],
                 name="uq_creator_platform_channel",
+            ),
+            models.UniqueConstraint(
+                fields=["creator"],
+                condition=models.Q(is_primary=True),
+                name="uq_creator_single_primary_channel",
             ),
         ]
 

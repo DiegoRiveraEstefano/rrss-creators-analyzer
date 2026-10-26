@@ -1,4 +1,5 @@
 import django_tables2 as tables
+from django.utils.translation import gettext_lazy as _
 
 from .models import Channel
 from .models import ChannelSnapshot
@@ -6,10 +7,31 @@ from .models import Creator
 
 
 class CreatorTable(tables.Table):
-    display_name = tables.Column(linkify=True, verbose_name="Creador")
+    display_name = tables.TemplateColumn(
+        template_name="creators/includes/creator_column_name.html",
+        verbose_name=_("Talento / Creador"),
+    )
+    platforms = tables.TemplateColumn(
+        template_name="creators/includes/creator_column_platforms.html",
+        verbose_name=_("Plataformas"),
+        orderable=False,
+    )
+    tier = tables.TemplateColumn(
+        template_name="creators/includes/creator_column_tier.html",
+        verbose_name=_("Tier"),
+    )
+    status = tables.TemplateColumn(
+        template_name="creators/includes/creator_column_status.html",
+        verbose_name=_("Estado"),
+    )
+    total_followers = tables.Column(
+        accessor="total_followers_count",
+        verbose_name=_("Audiencia Total"),
+        attrs={"td": {"class": "text-end font-monospace fw-semibold"}},
+    )
     actions = tables.TemplateColumn(
         template_name="creators/includes/creator_actions.html",
-        verbose_name="Acciones",
+        verbose_name=_("Acciones"),
         orderable=False,
     )
 
@@ -18,28 +40,48 @@ class CreatorTable(tables.Table):
         template_name = "django_tables2/bootstrap5.html"
         fields = (
             "display_name",
-            "handle",
-            "primary_platform",
+            "platforms",
             "tier",
             "status",
             "manager",
+            "total_followers",
             "joined_company_at",
         )
         attrs = {"class": "table table-hover table-striped align-middle mb-0"}
 
 
 class ChannelTable(tables.Table):
-    platform_channel_id = tables.Column(linkify=True, verbose_name="ID Canal")
-    followers_count = tables.Column(attrs={"td": {"class": "text-end font-monospace"}})
+    platform_channel_id = tables.Column(linkify=True, verbose_name=_("ID Canal"))
+    platform = tables.TemplateColumn(
+        template_name="creators/includes/channel_column_platform.html",
+        verbose_name=_("Plataforma"),
+    )
+    followers_count = tables.Column(
+        verbose_name=_("Seguidores"),
+        attrs={"td": {"class": "text-end font-monospace"}},
+    )
     subscribers_count = tables.Column(
+        verbose_name=_("Suscriptores"),
         attrs={"td": {"class": "text-end font-monospace"}},
     )
     total_views_count = tables.Column(
+        verbose_name=_("Vistas"),
         attrs={"td": {"class": "text-end font-monospace"}},
+    )
+    is_live = tables.TemplateColumn(
+        template_code=(
+            "{% if record.is_live %}"
+            '<span class="badge text-bg-danger">'
+            '<i class="bi bi-broadcast"></i> EN VIVO</span>'
+            "{% else %}"
+            '<span class="badge text-bg-light text-muted">Offline</span>'
+            "{% endif %}"
+        ),
+        verbose_name=_("Transmisión"),
     )
     actions = tables.TemplateColumn(
         template_name="creators/includes/channel_actions.html",
-        verbose_name="Acciones",
+        verbose_name=_("Acciones"),
         orderable=False,
     )
 
@@ -60,18 +102,26 @@ class ChannelTable(tables.Table):
 
 
 class ChannelSnapshotTable(tables.Table):
-    snapshot_date = tables.Column(linkify=True)
-    followers_count = tables.Column(attrs={"td": {"class": "text-end font-monospace"}})
-    followers_delta = tables.Column(attrs={"td": {"class": "text-end font-monospace"}})
+    snapshot_date = tables.Column(linkify=True, verbose_name=_("Fecha"))
+    followers_count = tables.Column(
+        verbose_name=_("Seguidores"),
+        attrs={"td": {"class": "text-end font-monospace"}},
+    )
+    followers_delta = tables.Column(
+        verbose_name=_("Δ Seguidores"),
+        attrs={"td": {"class": "text-end font-monospace"}},
+    )
     subscribers_count = tables.Column(
+        verbose_name=_("Suscriptores"),
         attrs={"td": {"class": "text-end font-monospace"}},
     )
     total_views_count = tables.Column(
+        verbose_name=_("Total Vistas"),
         attrs={"td": {"class": "text-end font-monospace"}},
     )
     actions = tables.TemplateColumn(
         template_name="creators/includes/snapshot_actions.html",
-        verbose_name="Acciones",
+        verbose_name=_("Acciones"),
         orderable=False,
     )
 
