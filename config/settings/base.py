@@ -22,7 +22,7 @@ if READ_DOT_ENV_FILE:
 # https://docs.djangoproject.com/en/dev/ref/settings/#debug
 DEBUG = env.bool("DJANGO_DEBUG", False)
 # Local time zone. Choices are
-# http://en.wikipedia.org/en/List_of_tz_zones_by_name
+# http://en.wikipedia.org/wiki/List_of_tz_zones_by_name
 # though not all of them may be available with every OS.
 # In Windows, this must be set to your system time zone.
 TIME_ZONE = "UTC"
@@ -40,13 +40,16 @@ LOCALE_PATHS = [str(BASE_DIR / "locale")]
 # DATABASES
 # ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/dev/ref/settings/#databases
+SQLITE_DB_PATH = env.str("SQLITE_DB_PATH", default=str(BASE_DIR / "db.sqlite3"))
+DISKCACHE_DIR = env.str("DISKCACHE_DIR", default=str(BASE_DIR / ".cache" / "diskcache"))
+
 if os.getenv("DATABASE_URL", default=None):
     DATABASES = {"default": env.db("DATABASE_URL")}
 else:
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.sqlite3",
-            "NAME": str(BASE_DIR / "db.sqlite3"),
+            "NAME": SQLITE_DB_PATH,
             "OPTIONS": {
                 "timeout": 20,
             },
@@ -62,7 +65,7 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 CACHES = {
     "default": {
         "BACKEND": "diskcache.DjangoCache",
-        "LOCATION": str(BASE_DIR / ".cache" / "diskcache"),
+        "LOCATION": DISKCACHE_DIR,
         "TIMEOUT": 300,
         "SHARDS": 4,
         "DATABASE_TIMEOUT": 0.10,
@@ -161,9 +164,8 @@ LOGIN_URL = "account_login"
 
 # PASSWORDS
 # ------------------------------------------------------------------------------
-# https://docs.djangoproject.com/en/dev/ref/settings/#password-hashers
+# https://docs.djangoproject.com/en/dev/topics/auth/passwords/#using-argon2-with-django
 PASSWORD_HASHERS = [
-    # https://docs.djangoproject.com/en/dev/topics/auth/passwords/#using-argon2-with-django
     "django.contrib.auth.hashers.Argon2PasswordHasher",
     "django.contrib.auth.hashers.PBKDF2PasswordHasher",
     "django.contrib.auth.hashers.PBKDF2SHA1PasswordHasher",
