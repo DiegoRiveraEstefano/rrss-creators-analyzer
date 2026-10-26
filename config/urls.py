@@ -51,6 +51,10 @@ urlpatterns = [
         include("rrss_creatos_analyzer.apps.videos.urls", namespace="videos"),
     ),
     path(
+        "editors/",
+        include("rrss_creatos_analyzer.apps.editors.urls", namespace="editors"),
+    ),
+    path(
         "alerts/",
         include("rrss_creatos_analyzer.apps.alerts.urls", namespace="alerts"),
     ),

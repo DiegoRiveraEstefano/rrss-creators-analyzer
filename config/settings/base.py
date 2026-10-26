@@ -138,6 +138,7 @@ LOCAL_APPS = [
     "rrss_creatos_analyzer.apps.exports",
     "rrss_creatos_analyzer.apps.streams",
     "rrss_creatos_analyzer.apps.videos",
+    "rrss_creatos_analyzer.apps.editors",
     "rrss_creatos_analyzer.apps.alerts",
     "rrss_creatos_analyzer.apps.campaigns",
     "rrss_creatos_analyzer.apps.payouts",
