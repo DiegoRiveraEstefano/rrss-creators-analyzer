@@ -16,6 +16,7 @@ from rrss_creatos_analyzer.apps.core.choices import VideoFormat
 from rrss_creatos_analyzer.apps.core.choices import VideoRelationType
 from rrss_creatos_analyzer.apps.core.choices import VideoStatus
 from rrss_creatos_analyzer.apps.core.models import BaseModel
+from rrss_creatos_analyzer.apps.core.models import TitleDescriptionModelMixin
 from rrss_creatos_analyzer.apps.creators.models import Channel
 from rrss_creatos_analyzer.apps.creators.models import Creator
 from rrss_creatos_analyzer.apps.imports.models import ImportBatch
@@ -23,7 +24,7 @@ from rrss_creatos_analyzer.apps.streams.models import StreamingSession
 
 
 @auditlog.register()
-class Video(BaseModel):
+class Video(BaseModel, TitleDescriptionModelMixin):
     creator = models.ForeignKey(
         Creator,
         on_delete=models.CASCADE,

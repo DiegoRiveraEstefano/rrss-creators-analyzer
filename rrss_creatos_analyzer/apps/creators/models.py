@@ -12,10 +12,13 @@ from rrss_creatos_analyzer.apps.core.choices import CreatorStatus
 from rrss_creatos_analyzer.apps.core.choices import CreatorTier
 from rrss_creatos_analyzer.apps.core.choices import PlatformType
 from rrss_creatos_analyzer.apps.core.models import BaseModel
+from rrss_creatos_analyzer.apps.core.models import SluggedModelMixin
 
 
 @auditlog.register()
-class Creator(BaseModel):
+class Creator(BaseModel, SluggedModelMixin):
+    slug_source_field = "handle"
+
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,

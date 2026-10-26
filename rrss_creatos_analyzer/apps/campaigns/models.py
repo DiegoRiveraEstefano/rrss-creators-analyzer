@@ -14,13 +14,14 @@ from rrss_creatos_analyzer.apps.core.choices import DeliverableStatus
 from rrss_creatos_analyzer.apps.core.choices import DeliverableType
 from rrss_creatos_analyzer.apps.core.choices import PlatformType
 from rrss_creatos_analyzer.apps.core.models import BaseModel
+from rrss_creatos_analyzer.apps.core.models import DateRangeModelMixin
 from rrss_creatos_analyzer.apps.creators.models import Creator
 from rrss_creatos_analyzer.apps.streams.models import StreamingSession
 from rrss_creatos_analyzer.apps.videos.models import VideoPublication
 
 
 @auditlog.register()
-class SponsorCampaign(BaseModel):
+class SponsorCampaign(BaseModel, DateRangeModelMixin):
     account_manager = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,

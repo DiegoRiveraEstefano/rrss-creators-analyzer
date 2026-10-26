@@ -10,6 +10,7 @@ from rrss_creatos_analyzer.apps.core.choices import AlertSeverity
 from rrss_creatos_analyzer.apps.core.choices import AlertStatus
 from rrss_creatos_analyzer.apps.core.choices import AlertType
 from rrss_creatos_analyzer.apps.core.models import BaseModel
+from rrss_creatos_analyzer.apps.core.models import TitleDescriptionModelMixin
 from rrss_creatos_analyzer.apps.creators.models import Channel
 from rrss_creatos_analyzer.apps.creators.models import Creator
 from rrss_creatos_analyzer.apps.streams.models import StreamingSession
@@ -17,7 +18,7 @@ from rrss_creatos_analyzer.apps.videos.models import VideoPublication
 
 
 @auditlog.register()
-class ChannelAlert(BaseModel):
+class ChannelAlert(BaseModel, TitleDescriptionModelMixin):
     creator = models.ForeignKey(
         Creator,
         on_delete=models.CASCADE,

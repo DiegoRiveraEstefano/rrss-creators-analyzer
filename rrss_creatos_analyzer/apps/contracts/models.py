@@ -10,11 +10,12 @@ from simple_history.models import HistoricalRecords
 
 from rrss_creatos_analyzer.apps.core.choices import ContractStatus
 from rrss_creatos_analyzer.apps.core.models import BaseModel
+from rrss_creatos_analyzer.apps.core.models import DateRangeModelMixin
 from rrss_creatos_analyzer.apps.creators.models import Creator
 
 
 @auditlog.register()
-class Contract(BaseModel):
+class Contract(BaseModel, DateRangeModelMixin):
     creator = models.ForeignKey(
         Creator,
         on_delete=models.CASCADE,
