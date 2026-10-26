@@ -118,6 +118,7 @@ THIRD_PARTY_APPS = [
     "taggit",
     "django_tables2",
     "simple_history",
+    "auditlog",
 ]
 
 LOCAL_APPS = [
@@ -197,6 +198,7 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "allauth.account.middleware.AccountMiddleware",
     "simple_history.middleware.HistoryRequestMiddleware",
+    "auditlog.middleware.AuditlogMiddleware",
 ]
 
 # STATIC
@@ -368,7 +370,7 @@ ACCOUNT_LOGIN_METHODS = {"username"}
 # https://docs.allauth.org/en/latest/account/configuration.html
 ACCOUNT_SIGNUP_FIELDS = ["email*", "username*", "password1*", "password2*"]
 # https://docs.allauth.org/en/latest/account/configuration.html
-ACCOUNT_EMAIL_VERIFICATION = "mandatory"
+ACCOUNT_EMAIL_VERIFICATION = "optional"
 # https://docs.allauth.org/en/latest/account/configuration.html
 ACCOUNT_ADAPTER = "rrss_creatos_analyzer.apps.users.adapters.AccountAdapter"
 # https://docs.allauth.org/en/latest/account/forms.html

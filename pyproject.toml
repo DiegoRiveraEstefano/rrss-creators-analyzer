@@ -20,6 +20,7 @@ dependencies = [
   "django==6.0.9",
   "django-allauth[mfa]==65.19.7",
   "django-anymail==15.2",
+  "django-auditlog>=3.4.1",
   "django-autocomplete-light[gfk,nested,tags]>=5.0.0",
   "django-celery-beat==2.9.0",
   "django-compressor==4.6.0",
