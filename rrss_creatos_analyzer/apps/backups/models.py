@@ -1,3 +1,4 @@
+from auditlog.registry import auditlog
 from django.conf import settings
 from django.db import models
 from django.urls import reverse
@@ -6,6 +7,7 @@ from django.utils.translation import gettext_lazy as _
 from rrss_creatos_analyzer.apps.core.models import BaseModel
 
 
+@auditlog.register()
 class DatabaseBackup(BaseModel):
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,

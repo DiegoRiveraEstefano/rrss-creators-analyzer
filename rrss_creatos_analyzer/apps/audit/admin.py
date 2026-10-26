@@ -1,10 +1,11 @@
+from auditlog.admin import LogEntryAdmin
 from django.contrib import admin
 
 from .models import AuditEvent
 
 
 @admin.register(AuditEvent)
-class AuditEventAdmin(admin.ModelAdmin):
+class AuditEventAdmin(LogEntryAdmin):
     list_display = (
         "created_at",
         "actor",
@@ -14,4 +15,4 @@ class AuditEventAdmin(admin.ModelAdmin):
         "ip_address",
         "summary",
     )
-    list_filter = ("event_action", "target_model", "actor")
+    search_fields = ("object_repr", "changes_text", "remote_addr", "object_pk")

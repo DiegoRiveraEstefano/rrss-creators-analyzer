@@ -1,5 +1,6 @@
 from decimal import Decimal
 
+from auditlog.registry import auditlog
 from django.conf import settings
 from django.db import models
 from django.db.models import Q
@@ -21,6 +22,7 @@ from rrss_creatos_analyzer.apps.imports.models import ImportBatch
 from rrss_creatos_analyzer.apps.streams.models import StreamingSession
 
 
+@auditlog.register()
 class Video(BaseModel):
     creator = models.ForeignKey(
         Creator,
@@ -128,6 +130,7 @@ class Video(BaseModel):
         return reverse("videos:video_detail", kwargs={"pk": self.pk})
 
 
+@auditlog.register()
 class VideoPublication(BaseModel):
     video = models.ForeignKey(
         Video,
@@ -272,6 +275,7 @@ class VideoPublication(BaseModel):
         return reverse("videos:publication_detail", kwargs={"pk": self.pk})
 
 
+@auditlog.register()
 class VideoRelation(BaseModel):
     source_video = models.ForeignKey(
         Video,

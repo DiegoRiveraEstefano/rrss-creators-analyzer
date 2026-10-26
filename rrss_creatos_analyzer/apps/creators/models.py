@@ -1,3 +1,4 @@
+from auditlog.registry import auditlog
 from django.conf import settings
 from django.db import models
 from django.db.models import Q
@@ -13,6 +14,7 @@ from rrss_creatos_analyzer.apps.core.choices import PlatformType
 from rrss_creatos_analyzer.apps.core.models import BaseModel
 
 
+@auditlog.register()
 class Creator(BaseModel):
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
@@ -97,6 +99,7 @@ class Creator(BaseModel):
         return reverse("creators:creator_detail", kwargs={"pk": self.pk})
 
 
+@auditlog.register()
 class Channel(BaseModel):
     creator = models.ForeignKey(
         Creator,
@@ -166,6 +169,7 @@ class Channel(BaseModel):
         return reverse("creators:channel_detail", kwargs={"pk": self.pk})
 
 
+@auditlog.register()
 class ChannelSnapshot(BaseModel):
     channel = models.ForeignKey(
         Channel,

@@ -1,39 +1,48 @@
-from django.conf import settings
-from django.db import models
+from auditlog.models import LogEntry
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 
-from rrss_creatos_analyzer.apps.core.models import BaseModel
 
-
-class AuditEvent(BaseModel):
-    actor = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="audit_events",
-        verbose_name=_("Actor / Usuario"),
-    )
-    event_action = models.CharField(_("Acción"), max_length=100, db_index=True)
-    target_model = models.CharField(_("Modelo Afectado"), max_length=100)
-    target_object_id = models.CharField(_("ID Objeto"), max_length=64, blank=True)
-    ip_address = models.GenericIPAddressField(_("Dirección IP"), null=True, blank=True)
-    summary = models.CharField(_("Resumen"), max_length=255)
-    changes_payload = models.JSONField(
-        _("Detalle de Cambios"),
-        default=dict,
-        blank=True,
-    )
-
+class AuditEvent(LogEntry):
     class Meta:
+        proxy = True
         verbose_name = _("Evento de Auditoría")
         verbose_name_plural = _("Eventos de Auditoría")
-        ordering = ["-created_at"]
+        ordering = ["-timestamp"]
 
     def __str__(self) -> str:
-        ts = f"{self.created_at:%Y-%m-%d %H:%M}"
-        return f"{self.event_action} on {self.target_model} ({ts})"
+        action_name = self.get_action_display().upper()
+        ts = f"{self.timestamp:%Y-%m-%d %H:%M}"
+        return f"[{action_name}] {self.content_type} #{self.object_pk} ({ts})"
 
     def get_absolute_url(self) -> str:
         return reverse("audit:audit_detail", kwargs={"pk": self.pk})
+
+    @property
+    def created_at(self):
+        return self.timestamp
+
+    @property
+    def event_action(self) -> str:
+        return self.get_action_display()
+
+    @property
+    def target_model(self) -> str:
+        return str(self.content_type)
+
+    @property
+    def target_object_id(self) -> str:
+        return self.object_pk
+
+    @property
+    def ip_address(self) -> str | None:
+        return self.remote_addr
+
+    @property
+    def summary(self) -> str:
+        action_name = self.get_action_display().title()
+        return f"{action_name} {self.content_type}: {self.object_repr}"
+
+    @property
+    def changes_payload(self):
+        return self.changes_display_dict

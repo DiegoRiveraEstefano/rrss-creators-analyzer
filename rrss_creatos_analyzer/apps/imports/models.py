@@ -1,3 +1,4 @@
+from auditlog.registry import auditlog
 from django.conf import settings
 from django.db import models
 from django.db.models import Q
@@ -11,6 +12,7 @@ from rrss_creatos_analyzer.apps.core.choices import PlatformType
 from rrss_creatos_analyzer.apps.core.models import BaseModel
 
 
+@auditlog.register()
 class ImportBatch(BaseModel):
     uploaded_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,

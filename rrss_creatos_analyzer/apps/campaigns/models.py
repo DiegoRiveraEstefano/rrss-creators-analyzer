@@ -1,5 +1,6 @@
 from decimal import Decimal
 
+from auditlog.registry import auditlog
 from django.conf import settings
 from django.db import models
 from django.db.models import Q
@@ -18,6 +19,7 @@ from rrss_creatos_analyzer.apps.streams.models import StreamingSession
 from rrss_creatos_analyzer.apps.videos.models import VideoPublication
 
 
+@auditlog.register()
 class SponsorCampaign(BaseModel):
     account_manager = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -87,6 +89,7 @@ class SponsorCampaign(BaseModel):
         return reverse("campaigns:campaign_detail", kwargs={"pk": self.pk})
 
 
+@auditlog.register()
 class CampaignDeliverable(BaseModel):
     campaign = models.ForeignKey(
         SponsorCampaign,

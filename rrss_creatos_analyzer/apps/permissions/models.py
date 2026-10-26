@@ -1,3 +1,4 @@
+from auditlog.registry import auditlog
 from django.contrib.auth.models import Group
 from django.db import models
 from django.urls import reverse
@@ -7,6 +8,7 @@ from simple_history.models import HistoricalRecords
 from rrss_creatos_analyzer.apps.core.models import BaseModel
 
 
+@auditlog.register()
 class RoleGroupProfile(BaseModel):
     """Metadata profile extending native Django auth.Group."""
 

@@ -1,3 +1,4 @@
+from auditlog.registry import auditlog
 from django.db import models
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
@@ -5,6 +6,7 @@ from django.utils.translation import gettext_lazy as _
 from rrss_creatos_analyzer.apps.core.models import BaseModel
 
 
+@auditlog.register()
 class AnalyticsSnapshot(BaseModel):
     cache_key = models.CharField(
         _("Clave de DiskCache"),

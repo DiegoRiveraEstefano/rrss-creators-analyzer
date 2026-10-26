@@ -1,5 +1,6 @@
 from decimal import Decimal
 
+from auditlog.registry import auditlog
 from django.db import models
 from django.db.models import Q
 from django.urls import reverse
@@ -14,6 +15,7 @@ from rrss_creatos_analyzer.apps.creators.models import Creator
 from rrss_creatos_analyzer.apps.imports.models import ImportBatch
 
 
+@auditlog.register()
 class StreamingSession(BaseModel):
     creator = models.ForeignKey(
         Creator,
@@ -168,6 +170,7 @@ class StreamingSession(BaseModel):
         return reverse("streams:session_detail", kwargs={"pk": self.pk})
 
 
+@auditlog.register()
 class SessionSegment(BaseModel):
     session = models.ForeignKey(
         StreamingSession,

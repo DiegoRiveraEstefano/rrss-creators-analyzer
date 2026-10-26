@@ -1,5 +1,6 @@
 import secrets
 
+from auditlog.registry import auditlog
 from django.conf import settings
 from django.contrib.auth.models import Group
 from django.db import models
@@ -16,6 +17,7 @@ def generate_invite_token() -> str:
     return secrets.token_urlsafe(32)
 
 
+@auditlog.register(exclude_fields=["token"])
 class MemberInvitation(BaseModel):
     class Status(models.TextChoices):
         PENDING = "pending", _("Pendiente")
@@ -71,6 +73,7 @@ class MemberInvitation(BaseModel):
         return reverse("members:invitation_detail", kwargs={"pk": self.pk})
 
 
+@auditlog.register()
 class CreatorTeamAssignment(BaseModel):
     creator = models.ForeignKey(
         Creator,

@@ -1,3 +1,4 @@
+from auditlog.registry import auditlog
 from django.conf import settings
 from django.db import models
 from django.db.models import Q
@@ -15,6 +16,7 @@ from rrss_creatos_analyzer.apps.streams.models import StreamingSession
 from rrss_creatos_analyzer.apps.videos.models import VideoPublication
 
 
+@auditlog.register()
 class ChannelAlert(BaseModel):
     creator = models.ForeignKey(
         Creator,

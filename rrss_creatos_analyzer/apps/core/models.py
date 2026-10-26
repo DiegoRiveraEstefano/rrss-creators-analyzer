@@ -1,5 +1,6 @@
 from decimal import Decimal
 
+from auditlog.registry import auditlog
 from django.db import models
 from django.db.models import F
 from django.db.models import Q
@@ -18,6 +19,7 @@ class BaseModel(models.Model):
         abstract = True
 
 
+@auditlog.register()
 class CompanySettings(BaseModel):
     """Singleton model for Single-Tenant / Single-Company configuration."""
 

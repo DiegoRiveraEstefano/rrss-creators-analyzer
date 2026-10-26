@@ -1,5 +1,6 @@
 from decimal import Decimal
 
+from auditlog.registry import auditlog
 from django.db import models
 from django.db.models import F
 from django.db.models import Q
@@ -12,6 +13,7 @@ from rrss_creatos_analyzer.apps.core.models import BaseModel
 from rrss_creatos_analyzer.apps.creators.models import Creator
 
 
+@auditlog.register()
 class Contract(BaseModel):
     creator = models.ForeignKey(
         Creator,

@@ -9,4 +9,10 @@ if TYPE_CHECKING:
 class AuditEventSelector:
     @classmethod
     def get_queryset(cls) -> QuerySet[AuditEvent]:
-        return AuditEvent.objects.all()
+        return AuditEvent.objects.select_related("actor", "content_type").order_by(
+            "-timestamp",
+        )
+
+    @classmethod
+    def get_by_id(cls, pk: int) -> AuditEvent | None:
+        return cls.get_queryset().filter(pk=pk).first()

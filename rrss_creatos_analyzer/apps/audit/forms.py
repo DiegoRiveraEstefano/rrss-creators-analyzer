@@ -9,12 +9,12 @@ class AuditEventForm(forms.ModelForm):
         model = AuditEvent
         fields = [
             "actor",
-            "event_action",
-            "target_model",
-            "target_object_id",
-            "ip_address",
-            "summary",
-            "changes_payload",
+            "action",
+            "content_type",
+            "object_pk",
+            "object_repr",
+            "remote_addr",
+            "additional_data",
         ]
 
     def __init__(self, *args, **kwargs):
