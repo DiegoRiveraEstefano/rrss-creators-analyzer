@@ -16,6 +16,10 @@ urlpatterns = [
     path("", HomeDashboardView.as_view(), name="home"),
     path("about/", AboutView.as_view(), name="about"),
     # Django Admin, use {% url 'admin:index' %}
+    path("admin/dj-cache-panel/", include("dj_cache_panel.urls")),
+    path("admin/dj-urls-panel/", include("dj_urls_panel.urls")),
+    path("admin/dj_signals_panel/", include("dj_signals_panel.urls")),
+    path("admin/dj-control-room/", include("dj_control_room.urls")),
     path(settings.ADMIN_URL, admin.site.urls),
     # User & Access management
     path("users/", include("rrss_creatos_analyzer.apps.users.urls", namespace="users")),

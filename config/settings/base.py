@@ -119,6 +119,12 @@ THIRD_PARTY_APPS = [
     "django_tables2",
     "simple_history",
     "auditlog",
+    "formtools",
+    "dj_control_room_base",
+    "dj_cache_panel",
+    "dj_urls_panel",
+    "dj_signals_panel",
+    "dj_control_room",
 ]
 
 LOCAL_APPS = [

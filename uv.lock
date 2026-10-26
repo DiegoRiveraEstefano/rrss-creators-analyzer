@@ -553,6 +553,79 @@ wheels = [
 ]
 
 [[package]]
+name = "dj-cache-panel"
+version = "0.6.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "dj-control-room-base" },
+    { name = "django" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/f5/17/57c1a02fc4424d0de7478ac53aea47fc64037b98062f74a32c7f2afa6251/dj_cache_panel-0.6.0.tar.gz", hash = "sha256:0611c8582866072bcc7f03929a8ed2f4b7b74fdbe0eae5ecec3521310e39c850", size = 29882, upload-time = "2026-08-11T19:46:22.217Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/95/8c/30afc8b5cea23bbec87ca3a046691dd4fec5a5194e9e14d1bdac4b54a8a7/dj_cache_panel-0.6.0-py3-none-any.whl", hash = "sha256:157e98cb3e055ec51405c0f44152647d0866056b9998ea2841be794c39fecb27", size = 25115, upload-time = "2026-08-11T19:46:21.013Z" },
+]
+
+[[package]]
+name = "dj-control-room"
+version = "1.8.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "dj-control-room-base" },
+    { name = "django" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/79/17/c502610ec7b0e87c080b3ef60578d67062d2018e76444966183559f41d9d/dj_control_room-1.8.1.tar.gz", hash = "sha256:546c83e2ed5a0dbbd989a82137c1866fd751f35bdb8a3ad28c39b0b789029909", size = 1450502, upload-time = "2026-09-30T17:20:26.986Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/7a/74/55a11ecd692e2cfbbe821f046a099eb1d26469631c900773dda51011e215/dj_control_room-1.8.1-py3-none-any.whl", hash = "sha256:2902695e3339a8d9c0b4be7598ee23edc78476ab7fa8f675122eeb699bce2689", size = 1440962, upload-time = "2026-09-30T17:20:25.36Z" },
+]
+
+[package.optional-dependencies]
+cache = [
+    { name = "dj-cache-panel" },
+]
+urls = [
+    { name = "dj-urls-panel" },
+]
+
+[[package]]
+name = "dj-control-room-base"
+version = "1.6.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "django" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/d2/ac/d045f54ea20f0187164c29baa542922991a90e47c267f58d980f949855a6/dj_control_room_base-1.6.0.tar.gz", hash = "sha256:250c11296baa7e84e4ea988783f70825598523d3fa30f8447db937dabb76b338", size = 146131, upload-time = "2026-09-28T04:28:37.073Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/06/74/dd0471d559f0d1856d7bfea31b877bcef49c1dc5f014c4aa0c2db2cad9e8/dj_control_room_base-1.6.0-py3-none-any.whl", hash = "sha256:54e74e8655ff077f429722b956b2c574e5e5fb390da0882cfb41ebce1cab1551", size = 159548, upload-time = "2026-09-28T04:28:35.711Z" },
+]
+
+[[package]]
+name = "dj-signals-panel"
+version = "0.6.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "dj-control-room-base" },
+    { name = "django" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/4f/2e/b386a8e9293ad56bdded626b6876e4f59957fac51762609194c43960ab92/dj_signals_panel-0.6.0.tar.gz", hash = "sha256:bcdabefaf001d65795703e74881441e0163eda220192da73f7b955dc99ea30a4", size = 32778, upload-time = "2026-08-11T19:51:57.824Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e8/3f/5b5836e29ded9da6c0e231a1ac5aa1e5e920cfcb2f2094002f3ac30a9ebe/dj_signals_panel-0.6.0-py3-none-any.whl", hash = "sha256:e24e33c1001d73e099645af8851440269557dc12a3572e28ad26517e06dabec0", size = 25136, upload-time = "2026-08-11T19:51:56.628Z" },
+]
+
+[[package]]
+name = "dj-urls-panel"
+version = "0.5.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "dj-control-room-base" },
+    { name = "django" },
+    { name = "requests" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/f5/2a/7e737a09025a405ea1fc8fd6e7e59d25913c8305c2b24ab45acfb07779ce/dj_urls_panel-0.5.0.tar.gz", hash = "sha256:7cdbd655b5e8ff9ece18582f94a2dce496a18ada72c4fa73017bbc2969ca4c1e", size = 41976, upload-time = "2026-08-11T19:55:58.94Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/0f/5c/29dd8baf044078d977fb1824db3ff0cdd1b3dcdbd71b988ca82d99843e29/dj_urls_panel-0.5.0-py3-none-any.whl", hash = "sha256:b9eddf66216570a8909ddcf0d94efd855ca15953e080f1b214f3ebcc315ee254", size = 34257, upload-time = "2026-08-11T19:55:57.855Z" },
+]
+
+[[package]]
 name = "django"
 version = "6.0.9"
 source = { registry = "https://pypi.org/simple" }
@@ -762,6 +835,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/07/ee/c0f950fe24f3e0b69d054ad957f9229632b50bdc78e968f966d8b4efe16a/django_filter-26.2.tar.gz", hash = "sha256:fd5cc83995fbe9f5f07fb5dcda16fde0f04de1ecf8ef82628b6c0ec921b751af", size = 144828, upload-time = "2026-10-03T12:01:01.007Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/4a/92/6b098caa5b980a9d13a8db4825b7670410fa572e9195e39648f7700f2a37/django_filter-26.2-py3-none-any.whl", hash = "sha256:df8f737841d6359df00b84dda9b5ab59067fe60292091f1bdae1e3e6281cedb0", size = 94077, upload-time = "2026-10-03T12:00:59.162Z" },
+]
+
+[[package]]
+name = "django-formtools"
+version = "2.7"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "django" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/40/fe/48cf5d38070577b83288f2bfd16a85aa864213d27d7dc7e8ec0feaa0a8ce/django_formtools-2.7.tar.gz", hash = "sha256:52b30c08571108023937e4b5d96a5cc35282ff0a2e51630aeea00e27d723d3ac", size = 92473, upload-time = "2026-07-09T16:06:34.341Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c0/98/ea43bece0395668c88f7a5c80b4c027dc61306911109b6a4446561fcb74d/django_formtools-2.7-py3-none-any.whl", hash = "sha256:06e4ab1f9c999f5b2ec6670cb2d51b77117599f4f17c5855f38de158b1c7f247", size = 159553, upload-time = "2026-07-09T16:06:32.977Z" },
 ]
 
 [[package]]
@@ -1973,6 +2058,8 @@ dependencies = [
     { name = "celery" },
     { name = "crispy-bootstrap5" },
     { name = "diskcache" },
+    { name = "dj-control-room", extra = ["cache", "urls"] },
+    { name = "dj-signals-panel" },
     { name = "django" },
     { name = "django-allauth", extra = ["mfa"] },
     { name = "django-anymail" },
@@ -1984,6 +2071,7 @@ dependencies = [
     { name = "django-crispy-forms" },
     { name = "django-environ" },
     { name = "django-filter" },
+    { name = "django-formtools" },
     { name = "django-import-export" },
     { name = "django-model-utils" },
     { name = "django-simple-history" },
@@ -2032,6 +2120,8 @@ requires-dist = [
     { name = "celery", specifier = "==5.6.3" },
     { name = "crispy-bootstrap5", specifier = "==2026.9" },
     { name = "diskcache", specifier = ">=5.6.3" },
+    { name = "dj-control-room", extras = ["cache", "urls"], specifier = ">=1.8.1" },
+    { name = "dj-signals-panel", specifier = ">=0.6.0" },
     { name = "django", specifier = "==6.0.9" },
     { name = "django-allauth", extras = ["mfa"], specifier = "==65.19.7" },
     { name = "django-anymail", specifier = "==15.2" },
@@ -2043,6 +2133,7 @@ requires-dist = [
     { name = "django-crispy-forms", specifier = "==2.7" },
     { name = "django-environ", specifier = "==0.14.0" },
     { name = "django-filter", specifier = ">=26.2" },
+    { name = "django-formtools", specifier = ">=2.7" },
     { name = "django-import-export", specifier = ">=4.4.3" },
     { name = "django-model-utils", specifier = "==5.0.0" },
     { name = "django-simple-history", specifier = ">=3.13.0" },
