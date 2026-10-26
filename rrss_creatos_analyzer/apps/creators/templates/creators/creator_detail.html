@@ -1,1 +1,492 @@
-{% extends "core/crud_detail.html" %}
+{% extends "base.html" %}
+
+{% block title %}
+  {{ object.display_name }} (@{{ object.handle }}) | RRSS Creators Analyzer
+{% endblock title %}
+
+{% block content %}
+<main id="main-content" class="container-fluid py-4">
+  <!-- Top Breadcrumb / Nav -->
+  <nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{% url 'creators:creator_list' %}">Creadores</a></li>
+      <li class="breadcrumb-item active" aria-current="page">{{ object.display_name }}</li>
+    </ol>
+  </nav>
+
+  <!-- Creator Header Card -->
+  <header class="card shadow-sm border-0 mb-4 overflow-hidden">
+    {% if object.banner_url %}
+      <div style="height: 140px; background-image: url('{{ object.banner_url }}'); background-size: cover; background-position: center;"></div>
+    {% else %}
+      <div class="bg-gradient bg-primary" style="height: 100px;"></div>
+    {% endif %}
+
+    <div class="card-body p-4 pt-0">
+      <div class="d-flex flex-wrap justify-content-between align-items-end gap-3" style="margin-top: -45px;">
+        <!-- Avatar and Main Identity -->
+        <div class="d-flex align-items-end gap-3">
+          {% if object.avatar_url %}
+            <img src="{{ object.avatar_url }}" alt="{{ object.display_name }}"
+                 class="rounded-circle border border-4 border-white shadow-sm"
+                 width="96" height="96" style="object-fit: cover; background: #fff;">
+          {% else %}
+            <div class="rounded-circle border border-4 border-white shadow-sm bg-primary text-white d-flex align-items-center justify-content-center fw-bold"
+                 style="width: 96px; height: 96px; font-size: 32px;">
+              {{ object.display_name|slice:":2"|upper }}
+            </div>
+          {% endif %}
+          <div class="mb-2">
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+              <h1 class="h3 mb-0">{{ object.display_name }}</h1>
+              <span class="badge bg-secondary-subtle text-secondary-emphasis font-monospace">@{{ object.handle }}</span>
+              {% if object.tier == 'elite' %}
+                <span class="badge bg-warning-subtle text-warning-emphasis border border-warning">Tier Elite</span>
+              {% elif object.tier == 'ambassador' %}
+                <span class="badge bg-info-subtle text-info-emphasis border border-info">Ambassador</span>
+              {% elif object.tier == 'partner' %}
+                <span class="badge bg-primary-subtle text-primary-emphasis border border-primary">Partner</span>
+              {% else %}
+                <span class="badge bg-light text-dark border">{{ object.get_tier_display }}</span>
+              {% endif %}
+
+              {% if object.status == 'active' %}
+                <span class="badge text-bg-success">Activo</span>
+              {% elif object.status == 'paused' %}
+                <span class="badge text-bg-warning">En Pausa</span>
+              {% elif object.status == 'inactive' %}
+                <span class="badge text-bg-secondary">Baja</span>
+              {% else %}
+                <span class="badge text-bg-light border">{{ object.get_status_display }}</span>
+              {% endif %}
+
+              {% if live_channels %}
+                <span class="badge text-bg-danger animate-pulse">
+                  <i class="bi bi-broadcast"></i> EN VIVO AHORA
+                </span>
+              {% endif %}
+            </div>
+            <p class="text-body-secondary small mb-0 mt-1">
+              <span class="me-3"><i class="bi bi-tag"></i> {{ object.main_category }}</span>
+              <span class="me-3"><i class="bi bi-translate"></i> Idioma: {{ object.language_code|upper }}</span>
+              {% if object.manager %}
+                <span><i class="bi bi-person-badge"></i> Manager: <strong>{{ object.manager }}</strong></span>
+              {% endif %}
+            </p>
+          </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="d-flex flex-wrap gap-2 mb-2">
+          <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#changeStatusModal">
+            <i class="bi bi-arrow-repeat"></i> Estado
+          </button>
+          <a href="{% url 'creators:creator_personal_info' object.pk %}" class="btn btn-outline-dark">
+            <i class="bi bi-person-vcard"></i> Datos Personales y Fiscales
+          </a>
+          <a href="{% url 'creators:channel_create' %}?creator={{ object.pk }}" class="btn btn-outline-success">
+            <i class="bi bi-plus-circle"></i> Nuevo Canal
+          </a>
+          <a href="{% url 'creators:creator_update' object.pk %}" class="btn btn-primary">
+            <i class="bi bi-pencil"></i> Editar
+          </a>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Metric Summary Cards -->
+  <section aria-label="Métricas del creador" class="row g-3 mb-4">
+    <div class="col-6 col-lg-3">
+      <div class="card shadow-sm border-0 h-100">
+        <div class="card-body">
+          <span class="text-body-secondary small text-uppercase fw-semibold">Canales Vinculados</span>
+          <h3 class="h2 mb-0 mt-2 font-monospace">{{ channels|length }}</h3>
+          <small class="text-muted">
+            {% if object.primary_channel %}
+              Principal: {{ object.primary_channel.get_platform_display }}
+            {% else %}
+              Sin canal principal
+            {% endif %}
+          </small>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-6 col-lg-3">
+      <div class="card shadow-sm border-0 h-100">
+        <div class="card-body">
+          <span class="text-body-secondary small text-uppercase fw-semibold">Audiencia Total (Seguidores)</span>
+          <h3 class="h2 mb-0 mt-2 font-monospace text-primary">{{ total_followers|default:0 }}</h3>
+          <small class="text-muted">Suma entre todos los canales</small>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-6 col-lg-3">
+      <div class="card shadow-sm border-0 h-100">
+        <div class="card-body">
+          <span class="text-body-secondary small text-uppercase fw-semibold">Suscriptores Acumulados</span>
+          <h3 class="h2 mb-0 mt-2 font-monospace text-success">{{ total_subscribers|default:0 }}</h3>
+          <small class="text-muted">Total en plataformas monetizadas</small>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-6 col-lg-3">
+      <div class="card shadow-sm border-0 h-100">
+        <div class="card-body">
+          <span class="text-body-secondary small text-uppercase fw-semibold">Reproducciones Totales</span>
+          <h3 class="h2 mb-0 mt-2 font-monospace text-info">{{ total_views|default:0 }}</h3>
+          <small class="text-muted">Vistas acumuladas registradas</small>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Navigation Tabs -->
+  <ul class="nav nav-tabs mb-4" id="creatorTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+      <button class="nav-link active fw-semibold" id="channels-tab" data-bs-toggle="tab" data-bs-target="#channels-pane" type="button" role="tab">
+        <i class="bi bi-broadcast me-1"></i> Canales de Contenido ({{ channels|length }})
+      </button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link fw-semibold" id="personal-tab" data-bs-toggle="tab" data-bs-target="#personal-pane" type="button" role="tab">
+        <i class="bi bi-shield-lock me-1"></i> Datos Personales y Fiscales
+        {% if not personal_info %}
+          <span class="badge bg-warning text-dark ms-1">Pendiente</span>
+        {% endif %}
+      </button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link fw-semibold" id="bio-tab" data-bs-toggle="tab" data-bs-target="#bio-pane" type="button" role="tab">
+        <i class="bi bi-file-text me-1"></i> Ficha y Notas Internas
+      </button>
+    </li>
+  </ul>
+
+  <!-- Tab Contents -->
+  <div class="tab-content" id="creatorTabsContent">
+    <!-- Pestaña 1: Canales -->
+    <div class="tab-pane fade show active" id="channels-pane" role="tabpanel" tabindex="0">
+      <div class="card shadow-sm border-0">
+        <div class="card-header bg-transparent py-3 d-flex justify-content-between align-items-center">
+          <h2 class="h6 mb-0">Canales y Plataformas de {{ object.display_name }}</h2>
+          <a href="{% url 'creators:channel_create' %}?creator={{ object.pk }}" class="btn btn-sm btn-primary">
+            <i class="bi bi-plus-lg"></i> Vincular Nuevo Canal
+          </a>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>Plataforma</th>
+                <th>Canal / ID</th>
+                <th class="text-end">Seguidores</th>
+                <th class="text-end">Suscriptores</th>
+                <th class="text-end">Vistas</th>
+                <th>Estado</th>
+                <th>Sincronización</th>
+                <th class="text-end">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for channel in channels %}
+                <tr>
+                  <td>
+                    <div class="d-flex align-items-center gap-2">
+                      <span class="badge {% if channel.platform == 'twitch' %}text-bg-primary{% elif channel.platform == 'youtube' %}text-bg-danger{% elif channel.platform == 'kick' %}text-bg-success{% elif channel.platform == 'tiktok' %}text-bg-dark{% else %}text-bg-secondary{% endif %}">
+                        {{ channel.get_platform_display }}
+                      </span>
+                      {% if channel.is_primary %}
+                        <span class="badge bg-warning-subtle text-warning-emphasis border border-warning" title="Canal Principal">
+                          <i class="bi bi-star-fill text-warning"></i> Principal
+                        </span>
+                      {% endif %}
+                    </div>
+                  </td>
+                  <td>
+                    <a href="{% url 'creators:channel_detail' channel.pk %}" class="fw-semibold text-decoration-none">
+                      {{ channel.channel_name|default:channel.platform_channel_id }}
+                    </a>
+                    {% if channel.handle %}
+                      <div class="small text-muted font-monospace">@{{ channel.handle }}</div>
+                    {% endif %}
+                    {% if channel.channel_url %}
+                      <a href="{{ channel.channel_url }}" target="_blank" rel="noopener noreferrer" class="small text-decoration-none">
+                        <i class="bi bi-box-arrow-up-right"></i> Abrir en {{ channel.get_platform_display }}
+                      </a>
+                    {% endif %}
+                  </td>
+                  <td class="text-end font-monospace">{{ channel.followers_count }}</td>
+                  <td class="text-end font-monospace">{{ channel.subscribers_count }}</td>
+                  <td class="text-end font-monospace">{{ channel.total_views_count }}</td>
+                  <td>
+                    {% if channel.is_live %}
+                      <span class="badge text-bg-danger"><i class="bi bi-broadcast"></i> EN VIVO</span>
+                    {% elif channel.status == 'active' %}
+                      <span class="badge text-bg-success">Activo</span>
+                    {% else %}
+                      <span class="badge text-bg-secondary">{{ channel.get_status_display }}</span>
+                    {% endif %}
+                  </td>
+                  <td>
+                    {% if channel.sync_enabled %}
+                      <span class="badge bg-success-subtle text-success border border-success">
+                        <i class="bi bi-check2"></i> Activa
+                      </span>
+                    {% else %}
+                      <span class="badge bg-secondary-subtle text-secondary border">
+                        <i class="bi bi-pause"></i> Pausada
+                      </span>
+                    {% endif %}
+                  </td>
+                  <td class="text-end">
+                    <div class="d-inline-flex gap-1">
+                      {% if not channel.is_primary %}
+                        <form method="post" action="{% url 'creators:channel_set_primary' channel.pk %}">
+                          {% csrf_token %}
+                          <input type="hidden" name="next" value="{{ request.path }}">
+                          <button type="submit" class="btn btn-sm btn-outline-warning" title="Hacer Canal Principal">
+                            <i class="bi bi-star"></i> Principal
+                          </button>
+                        </form>
+                      {% endif %}
+                      <form method="post" action="{% url 'creators:channel_toggle_sync' channel.pk %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="next" value="{{ request.path }}">
+                        <button type="submit" class="btn btn-sm {% if channel.sync_enabled %}btn-outline-secondary{% else %}btn-outline-success{% endif %}" title="Toggle Sincronización">
+                          <i class="bi {% if channel.sync_enabled %}bi-pause-circle{% else %}bi-play-circle{% endif %}"></i>
+                        </button>
+                      </form>
+                      <a href="{% url 'creators:channel_update' channel.pk %}" class="btn btn-sm btn-outline-primary" title="Editar Canal">
+                        <i class="bi bi-pencil"></i>
+                      </a>
+                    </div>
+                  </td>
+                </tr>
+              {% empty %}
+                <tr>
+                  <td colspan="8" class="text-center text-muted py-4">
+                    Este creador aún no tiene canales vinculados.
+                    <div class="mt-2">
+                      <a href="{% url 'creators:channel_create' %}?creator={{ object.pk }}" class="btn btn-sm btn-primary">
+                        + Vincular Canal
+                      </a>
+                    </div>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pestaña 2: Datos Personales y Fiscales -->
+    <div class="tab-pane fade" id="personal-pane" role="tabpanel" tabindex="0">
+      <div class="card shadow-sm border-0">
+        <div class="card-header bg-transparent py-3 d-flex justify-content-between align-items-center">
+          <div class="d-flex align-items-center gap-2">
+            <h2 class="h6 mb-0">Información Confidencial y Fiscal</h2>
+            <span class="badge text-bg-warning"><i class="bi bi-lock-fill"></i> Privado</span>
+          </div>
+          <a href="{% url 'creators:creator_personal_info' object.pk %}" class="btn btn-sm btn-primary">
+            <i class="bi bi-pencil-square"></i> {% if personal_info %}Actualizar Datos{% else %}Completar Ficha{% endif %}
+          </a>
+        </div>
+        <div class="card-body">
+          {% if personal_info %}
+            <div class="row g-4">
+              <!-- Datos de Identidad -->
+              <div class="col-md-6">
+                <h3 class="h6 text-primary border-bottom pb-2 mb-3">Identidad Legal y Contacto</h3>
+                <dl class="row mb-0">
+                  <dt class="col-sm-5 text-body-secondary">Nombre Legal:</dt>
+                  <dd class="col-sm-7 fw-semibold">{{ personal_info.legal_full_name|default:"—" }}</dd>
+
+                  <dt class="col-sm-5 text-body-secondary">DNI / CIF / Tax ID:</dt>
+                  <dd class="col-sm-7 font-monospace">{{ personal_info.tax_id|default:"—" }}</dd>
+
+                  <dt class="col-sm-5 text-body-secondary">Email de Contacto Directo:</dt>
+                  <dd class="col-sm-7">
+                    {% if personal_info.contact_email %}
+                      <a href="mailto:{{ personal_info.contact_email }}">{{ personal_info.contact_email }}</a>
+                    {% else %}
+                      —
+                    {% endif %}
+                  </dd>
+
+                  <dt class="col-sm-5 text-body-secondary">Teléfono:</dt>
+                  <dd class="col-sm-7 font-monospace">{{ personal_info.phone_number|default:"—" }}</dd>
+
+                  <dt class="col-sm-5 text-body-secondary">Fecha de Nacimiento:</dt>
+                  <dd class="col-sm-7">{{ personal_info.birth_date|default:"—" }}</dd>
+                </dl>
+              </div>
+
+              <!-- Domicilio y Residencia -->
+              <div class="col-md-6">
+                <h3 class="h6 text-primary border-bottom pb-2 mb-3">Residencia Fiscal</h3>
+                <dl class="row mb-0">
+                  <dt class="col-sm-5 text-body-secondary">País (ISO):</dt>
+                  <dd class="col-sm-7">{{ personal_info.country_code|upper|default:"—" }}</dd>
+
+                  <dt class="col-sm-5 text-body-secondary">Ciudad:</dt>
+                  <dd class="col-sm-7">{{ personal_info.city|default:"—" }}</dd>
+
+                  <dt class="col-sm-5 text-body-secondary">Dirección Postal:</dt>
+                  <dd class="col-sm-7">{{ personal_info.address|default:"—" }}</dd>
+
+                  <dt class="col-sm-5 text-body-secondary">Código Postal:</dt>
+                  <dd class="col-sm-7 font-monospace">{{ personal_info.postal_code|default:"—" }}</dd>
+                </dl>
+              </div>
+
+              <!-- Contacto de Emergencia -->
+              <div class="col-md-6">
+                <h3 class="h6 text-primary border-bottom pb-2 mb-3">Contacto de Emergencia</h3>
+                <dl class="row mb-0">
+                  <dt class="col-sm-5 text-body-secondary">Nombre:</dt>
+                  <dd class="col-sm-7">{{ personal_info.emergency_contact_name|default:"—" }}</dd>
+
+                  <dt class="col-sm-5 text-body-secondary">Teléfono:</dt>
+                  <dd class="col-sm-7 font-monospace">{{ personal_info.emergency_contact_phone|default:"—" }}</dd>
+
+                  <dt class="col-sm-5 text-body-secondary">Parentesco:</dt>
+                  <dd class="col-sm-7">{{ personal_info.emergency_contact_relationship|default:"—" }}</dd>
+                </dl>
+              </div>
+
+              <!-- Datos Bancarios / Liquidación -->
+              <div class="col-md-6">
+                <h3 class="h6 text-primary border-bottom pb-2 mb-3">Datos Bancarios para Liquidaciones</h3>
+                <dl class="row mb-0">
+                  <dt class="col-sm-5 text-body-secondary">Banco:</dt>
+                  <dd class="col-sm-7">{{ personal_info.bank_name|default:"—" }}</dd>
+
+                  <dt class="col-sm-5 text-body-secondary">Titular:</dt>
+                  <dd class="col-sm-7">{{ personal_info.bank_account_holder|default:"—" }}</dd>
+
+                  <dt class="col-sm-5 text-body-secondary">IBAN / Cuenta:</dt>
+                  <dd class="col-sm-7 font-monospace">{{ personal_info.bank_account_iban|default:"—" }}</dd>
+
+                  <dt class="col-sm-5 text-body-secondary">SWIFT / BIC:</dt>
+                  <dd class="col-sm-7 font-monospace">{{ personal_info.bank_swift_bic|default:"—" }}</dd>
+                </dl>
+              </div>
+
+              {% if personal_info.notes %}
+                <div class="col-12">
+                  <h3 class="h6 text-primary border-bottom pb-2 mb-2">Notas Confidenciales</h3>
+                  <div class="p-3 bg-light rounded border text-body-secondary">
+                    {{ personal_info.notes|linebreaks }}
+                  </div>
+                </div>
+              {% endif %}
+            </div>
+          {% else %}
+            <div class="text-center py-5">
+              <i class="bi bi-person-vcard text-body-secondary" style="font-size: 3rem;"></i>
+              <h3 class="h5 mt-3 mb-2">Ficha de Datos Personales no Registrada</h3>
+              <p class="text-body-secondary col-md-6 mx-auto mb-4">
+                Los datos personales, fiscales, de contacto directo y cuentas bancarias para pagos aún no han sido registrados para este creador.
+              </p>
+              <a href="{% url 'creators:creator_personal_info' object.pk %}" class="btn btn-primary">
+                <i class="bi bi-plus-lg"></i> Registrar Datos Personales y Fiscales
+              </a>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Pestaña 3: Ficha y Notas Internas -->
+    <div class="tab-pane fade" id="bio-pane" role="tabpanel" tabindex="0">
+      <div class="card shadow-sm border-0">
+        <div class="card-header bg-transparent py-3">
+          <h2 class="h6 mb-0">Información del Talento y Seguimiento Interno</h2>
+        </div>
+        <div class="card-body">
+          <div class="row g-4">
+            <div class="col-md-6">
+              <h3 class="h6 text-primary border-bottom pb-2 mb-3">Ciclo de Vida en la Compañía</h3>
+              <dl class="row mb-0">
+                <dt class="col-sm-5 text-body-secondary">Fecha de Ingreso:</dt>
+                <dd class="col-sm-7">{{ object.joined_company_at|default:"No registrada" }}</dd>
+
+                <dt class="col-sm-5 text-body-secondary">Fecha de Baja:</dt>
+                <dd class="col-sm-7">{{ object.left_company_at|default:"En activo" }}</dd>
+
+                <dt class="col-sm-5 text-body-secondary">Usuario Django:</dt>
+                <dd class="col-sm-7">{{ object.user|default:"Sin cuenta de usuario asociada" }}</dd>
+
+                <dt class="col-sm-5 text-body-secondary">Manager Asignado:</dt>
+                <dd class="col-sm-7">{{ object.manager|default:"Sin manager asignado" }}</dd>
+              </dl>
+            </div>
+
+            <div class="col-md-6">
+              <h3 class="h6 text-primary border-bottom pb-2 mb-3">Biografía Pública</h3>
+              <p class="text-body-secondary">{{ object.bio|default:"Sin biografía registrada."|linebreaks }}</p>
+
+              {% if object.tags.all %}
+                <h3 class="h6 text-primary border-bottom pb-2 mb-3 mt-4">Etiquetas / Tags</h3>
+                <div class="d-flex flex-wrap gap-1">
+                  {% for tag in object.tags.all %}
+                    <span class="badge bg-secondary-subtle text-secondary-emphasis">#{{ tag.name }}</span>
+                  {% endfor %}
+                </div>
+              {% endif %}
+            </div>
+
+            <div class="col-12">
+              <h3 class="h6 text-primary border-bottom pb-2 mb-3">Bitácora y Notas Internas</h3>
+              {% if object.internal_notes %}
+                <div class="p-3 bg-light rounded border text-body-secondary font-monospace small">
+                  {{ object.internal_notes|linebreaks }}
+                </div>
+              {% else %}
+                <p class="text-muted small fst-italic">No hay notas internas registradas para este creador.</p>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- Modal: Cambiar Estado -->
+<div class="modal fade" id="changeStatusModal" tabindex="-1" aria-labelledby="changeStatusModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form method="post" action="{% url 'creators:creator_change_status' object.pk %}">
+        {% csrf_token %}
+        <div class="modal-header">
+          <h5 class="modal-title" id="changeStatusModalLabel">Cambiar Estado del Creador</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+        <div class="modal-body">
+          <p class="small text-muted mb-3">
+            Modifica el estado operativo de <strong>{{ object.display_name }}</strong> en la compañía. Si se establece como Inactivo, se registrará la fecha de baja automáticamente.
+          </p>
+          <div class="mb-3">
+            <label for="id_status" class="form-label fw-semibold">Nuevo Estado</label>
+            {{ status_form.status }}
+          </div>
+          <div class="mb-3">
+            <label for="id_reason" class="form-label fw-semibold">Motivo o Justificación</label>
+            {{ status_form.reason }}
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Guardar Cambio de Estado</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock content %}

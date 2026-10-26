@@ -1,8 +1,22 @@
 <div class="btn-group btn-group-sm" role="group" aria-label="Acciones">
   <a href="{% url 'creators:creator_detail' record.pk %}"
-     class="btn btn-outline-secondary">Ver</a>
+     class="btn btn-outline-secondary"
+     title="Ver Ficha">
+    <i class="bi bi-eye"></i> Ver
+  </a>
   <a href="{% url 'creators:creator_update' record.pk %}"
-     class="btn btn-outline-primary">Editar</a>
+     class="btn btn-outline-primary"
+     title="Editar Perfil">
+    <i class="bi bi-pencil"></i>
+  </a>
+  <a href="{% url 'creators:creator_personal_info' record.pk %}"
+     class="btn btn-outline-dark"
+     title="Datos Personales y Fiscales">
+    <i class="bi bi-person-vcard"></i>
+  </a>
   <a href="{% url 'creators:creator_delete' record.pk %}"
-     class="btn btn-outline-danger">Eliminar</a>
+     class="btn btn-outline-danger"
+     title="Eliminar">
+    <i class="bi bi-trash"></i>
+  </a>
 </div>
