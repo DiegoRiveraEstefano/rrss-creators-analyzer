@@ -1,0 +1,8 @@
+<div class="btn-group btn-group-sm" role="group" aria-label="Acciones">
+  <a href="{% url 'editors:editor_detail' record.slug %}"
+     class="btn btn-outline-secondary">Ver</a>
+  <a href="{% url 'editors:editor_update' record.slug %}"
+     class="btn btn-outline-primary">Editar</a>
+  <a href="{% url 'editors:editor_delete' record.slug %}"
+     class="btn btn-outline-danger">Eliminar</a>
+</div>

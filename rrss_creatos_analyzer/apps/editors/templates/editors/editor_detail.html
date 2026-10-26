@@ -1,0 +1,53 @@
+{% extends "core/crud_detail.html" %}
+
+{% block detail_body %}
+  {{ block.super }}
+
+  {% if metrics %}
+    <hr class="my-4">
+    <h3 class="h6 mb-3">Métricas y Rendimiento del Editor</h3>
+    <div class="row g-3 text-center mb-4">
+      <div class="col-sm-3">
+        <div class="p-3 border rounded bg-body-tertiary">
+          <div class="fs-4 fw-bold font-monospace">{{ metrics.total_tasks }}</div>
+          <div class="small text-body-secondary">Tareas Totales</div>
+        </div>
+      </div>
+      <div class="col-sm-3">
+        <div class="p-3 border rounded bg-body-tertiary">
+          <div class="fs-4 fw-bold text-success font-monospace">{{ metrics.completed_tasks }}</div>
+          <div class="small text-body-secondary">Completadas</div>
+        </div>
+      </div>
+      <div class="col-sm-3">
+        <div class="p-3 border rounded bg-body-tertiary">
+          <div class="fs-4 fw-bold text-warning font-monospace">{{ metrics.active_tasks }}</div>
+          <div class="small text-body-secondary">En Progreso</div>
+        </div>
+      </div>
+      <div class="col-sm-3">
+        <div class="p-3 border rounded bg-body-tertiary">
+          <div class="fs-4 fw-bold font-monospace">{{ metrics.avg_revisions }}</div>
+          <div class="small text-body-secondary">Promedio Revisiones</div>
+        </div>
+      </div>
+    </div>
+  {% endif %}
+
+  {% if active_assignments %}
+    <hr class="my-4">
+    <h3 class="h6 mb-3">Creadores Asignados Actualmente</h3>
+    <ul class="list-group list-group-flush mb-3">
+      {% for asg in active_assignments %}
+        <li class="list-group-item d-flex justify-content-between align-items-center">
+          <div>
+            <strong>{{ asg.creator.display_name }}</strong>
+            <span class="badge bg-secondary ms-2">{{ asg.get_role_display }}</span>
+            {% if asg.is_primary %}<span class="badge bg-primary ms-1">Principal</span>{% endif %}
+          </div>
+          <a href="{% url 'editors:assignment_detail' asg.pk %}" class="btn btn-sm btn-outline-secondary">Ver Asignación</a>
+        </li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+{% endblock detail_body %}
