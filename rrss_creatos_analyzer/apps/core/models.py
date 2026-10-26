@@ -8,15 +8,34 @@ from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 from simple_history.models import HistoricalRecords
 
-
-class BaseModel(models.Model):
-    """Abstract base model with creation and update timestamps."""
-
-    created_at = models.DateTimeField(_("Creado el"), auto_now_add=True, db_index=True)
-    updated_at = models.DateTimeField(_("Actualizado el"), auto_now=True)
-
-    class Meta:
-        abstract = True
+from rrss_creatos_analyzer.apps.core.base_models import ActiveBaseModel
+from rrss_creatos_analyzer.apps.core.base_models import ActiveManager
+from rrss_creatos_analyzer.apps.core.base_models import ActiveModelMixin
+from rrss_creatos_analyzer.apps.core.base_models import ActiveQuerySet
+from rrss_creatos_analyzer.apps.core.base_models import ArchivableManager
+from rrss_creatos_analyzer.apps.core.base_models import ArchivableModelMixin
+from rrss_creatos_analyzer.apps.core.base_models import ArchivableQuerySet
+from rrss_creatos_analyzer.apps.core.base_models import BaseModel
+from rrss_creatos_analyzer.apps.core.base_models import DateRangeModelMixin
+from rrss_creatos_analyzer.apps.core.base_models import MetadataModelMixin
+from rrss_creatos_analyzer.apps.core.base_models import MonetaryModelMixin
+from rrss_creatos_analyzer.apps.core.base_models import NameDescriptionModelMixin
+from rrss_creatos_analyzer.apps.core.base_models import NameSlugDescriptionModel
+from rrss_creatos_analyzer.apps.core.base_models import OnlyActiveManager
+from rrss_creatos_analyzer.apps.core.base_models import OrderableModelMixin
+from rrss_creatos_analyzer.apps.core.base_models import SluggedModelMixin
+from rrss_creatos_analyzer.apps.core.base_models import SoftDeletableModelMixin
+from rrss_creatos_analyzer.apps.core.base_models import SoftDeleteBaseModel
+from rrss_creatos_analyzer.apps.core.base_models import SoftDeleteManager
+from rrss_creatos_analyzer.apps.core.base_models import SoftDeleteQuerySet
+from rrss_creatos_analyzer.apps.core.base_models import StandardModel
+from rrss_creatos_analyzer.apps.core.base_models import StandardUUIDModel
+from rrss_creatos_analyzer.apps.core.base_models import TitleDescriptionModelMixin
+from rrss_creatos_analyzer.apps.core.base_models import TitleSlugDescriptionModel
+from rrss_creatos_analyzer.apps.core.base_models import UserTrackingModelMixin
+from rrss_creatos_analyzer.apps.core.base_models import UUIDBaseModel
+from rrss_creatos_analyzer.apps.core.base_models import UUIDModelMixin
+from rrss_creatos_analyzer.apps.core.base_models import UUIDPrimaryKeyModelMixin
 
 
 @auditlog.register()
@@ -79,3 +98,36 @@ class CompanySettings(BaseModel):
 
     def get_absolute_url(self) -> str:
         return reverse("core:settings_detail", kwargs={"pk": self.pk})
+
+
+__all__ = [
+    "ActiveBaseModel",
+    "ActiveManager",
+    "ActiveModelMixin",
+    "ActiveQuerySet",
+    "ArchivableManager",
+    "ArchivableModelMixin",
+    "ArchivableQuerySet",
+    "BaseModel",
+    "CompanySettings",
+    "DateRangeModelMixin",
+    "MetadataModelMixin",
+    "MonetaryModelMixin",
+    "NameDescriptionModelMixin",
+    "NameSlugDescriptionModel",
+    "OnlyActiveManager",
+    "OrderableModelMixin",
+    "SluggedModelMixin",
+    "SoftDeletableModelMixin",
+    "SoftDeleteBaseModel",
+    "SoftDeleteManager",
+    "SoftDeleteQuerySet",
+    "StandardModel",
+    "StandardUUIDModel",
+    "TitleDescriptionModelMixin",
+    "TitleSlugDescriptionModel",
+    "UUIDBaseModel",
+    "UUIDModelMixin",
+    "UUIDPrimaryKeyModelMixin",
+    "UserTrackingModelMixin",
+]
