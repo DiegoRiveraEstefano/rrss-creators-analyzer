@@ -9,6 +9,9 @@ python manage.py migrate --noinput
 echo "==> Collecting static files..."
 python manage.py collectstatic --noinput
 
+echo "==> Compressing static files..."
+python manage.py compress
+
 echo "==> Starting Gunicorn ASGI / Uvicorn server on 0.0.0.0:8000..."
 exec gunicorn config.asgi:application \
     -k uvicorn.workers.UvicornWorker \
