@@ -11,8 +11,8 @@ trigger: always_on
    - Do NOT instantiate service objects (`Service()` is forbidden).
 2. **Single-Company Domain Context**:
    - No `tenant_id` parameter is required. Pass explicit domain identifiers (`creator_id`, `channel_id`, `video_id`, `actor_user_id`) and typed primitives (`str`, `int`, `Decimal`, `datetime`).
-3. **Decoupled from HTTP**:
-   - Services must NEVER accept `request`, `HttpRequest`, or `Form` instances.
+3. **Decoupled from HTTP & UI**:
+   - Services must NEVER accept `request`, `HttpRequest`, `Form`, or `WizardView` instances. Multi-step wizards must unpack their cleaned data payloads before invoking the service.
 4. **Explicit Atomicity & SQLite Write Efficiency**:
    - Any service method modifying the database must be decorated with `@transaction.atomic`.
    - Keep transactions short to prevent SQLite write contention.

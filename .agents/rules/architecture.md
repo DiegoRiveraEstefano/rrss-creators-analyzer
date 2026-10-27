@@ -29,6 +29,7 @@ trigger: always_on
   - `django-tables2` for all data tables, sorting, pagination, and export.
   - `django-filter` for declarative queryset filtering.
   - `django-crispy-forms` (`crispy-bootstrap5`) and `django-widget-tweaks` for form rendering.
+  - `django-formtools` (`formtools.wizard.views.SessionWizardView`) for sequential, multi-step wizards and workflows (creator onboarding, campaign setups, financial settlement approvals, batch import mapping).
   - `django-import-export` for CSV/XLSX batch imports and exports.
   - `django-simple-history` for model audit trails.
   - `django-taggit` for content tags and `django-autocomplete-light` for relational selects.
@@ -45,4 +46,5 @@ trigger: always_on
 | Tenancy | Adding `tenant_id` / `organization_id` | Role-based scoping (`user.role`) | Single-company system design |
 | Database | PostgreSQL-only `MATERIALIZED VIEW` / `ArrayField` | Django ORM `annotate`/`Window` + `DiskCache` / `django-taggit` | SQLite compatibility |
 | Tables & Filters | Manual HTML tables & manual `request.GET` parsing | `django-tables2` (`Table`) + `django-filter` (`FilterSet`) | Consistency & Django ecosystem leverage |
+| Multi-Step Forms | Manual `request.session` state hacks or giant 100-field monolithic forms | `django-formtools` (`SessionWizardView`) with step forms & atomic `Service` call in `done()` | Security, clean validation & state isolation |
 | Side Effects | `post_save` recalculating metrics or sending emails | Explicit `Service` call + `transaction.on_commit(...)` | Atomic failure handling & predictability |

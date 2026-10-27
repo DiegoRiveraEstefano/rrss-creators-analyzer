@@ -22,3 +22,9 @@ trigger: always_on
      1. Happy path execution and database persistence.
      2. Guard clause violations (raising `BusinessLogicError`).
      3. Proper invalidation/update of `DiskCache` analytical keys.
+6. **Multi-Step Wizards Testing (`django-formtools`)**:
+   - Unit tests: test each step form's `clean()` logic and validation in isolation (`test_forms.py`).
+   - Integration tests (`test_wizards.py` / `test_views.py`):
+     - Test step transitions by posting step data along with the wizard management form (`<wizard_name>-current_step`).
+     - Test backwards navigation using `wizard_goto_step` to verify session persistence.
+     - Test final step submission: assert that all steps' cleaned data are extracted and passed correctly to the target `Service` method, verifying redirection and user success messages.
