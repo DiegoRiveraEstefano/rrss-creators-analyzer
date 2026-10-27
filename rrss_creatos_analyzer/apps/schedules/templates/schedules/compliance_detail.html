@@ -1,0 +1,63 @@
+{% extends "core/crud_detail.html" %}
+
+{% block content %}
+  {{ block.super }}
+  <div class="container-fluid px-4 mb-4">
+    <div class="card shadow-sm border-0">
+      <div class="card-header bg-dark text-white">
+        <h5 class="card-title mb-0">Desglose de Auditoría - {{ object.creator.display_name }} ({{ object.month }}/{{ object.year }})</h5>
+      </div>
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col-md-3">
+            <div class="p-3 border rounded text-center bg-light">
+              <span class="text-muted d-block small">Días Estipulados</span>
+              <strong class="fs-4">{{ object.stipulated_days_count }}</strong>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="p-3 border rounded text-center bg-light">
+              <span class="text-muted d-block small">Días Cumplidos</span>
+              <strong class="fs-4 text-success">{{ object.completed_days_count }}</strong>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="p-3 border rounded text-center bg-light">
+              <span class="text-muted d-block small">Días con Retraso</span>
+              <strong class="fs-4 text-warning">{{ object.late_days_count }}</strong>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="p-3 border rounded text-center bg-light">
+              <span class="text-muted d-block small">Faltas Injustificadas</span>
+              <strong class="fs-4 text-danger">{{ object.missed_days_count }}</strong>
+            </div>
+          </div>
+        </div>
+
+        <div class="row g-3 mt-2">
+          <div class="col-md-4">
+            <div class="p-3 border rounded text-center bg-light">
+              <span class="text-muted d-block small">Horas Estipuladas</span>
+              <strong class="fs-4">{{ object.stipulated_hours }} h</strong>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="p-3 border rounded text-center bg-light">
+              <span class="text-muted d-block small">Horas Transmitidas</span>
+              <strong class="fs-4 text-primary">{{ object.actual_hours }} h</strong>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="p-3 border rounded text-center bg-light">
+              <span class="text-muted d-block small">% Cumplimiento Horas</span>
+              <strong class="fs-4 {% if object.hours_compliance_rate_pct >= 90 %}text-success{% else %}text-danger{% endif %}">
+                {{ object.hours_compliance_rate_pct }}%
+              </strong>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock content %}

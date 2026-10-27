@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% load crispy_forms_tags %}
+
+{% block title %}
+  Generar Slots de Calendario | RRSS Creators Analyzer
+{% endblock title %}
+
+{% block content %}
+  <main id="main-content" class="container py-4">
+    <div class="row justify-content-center">
+      <div class="col-12 col-md-8 col-lg-6">
+        <div class="card shadow-sm">
+          <div class="card-header bg-primary text-white py-3">
+            <h1 class="h5 mb-0">Generador Idempotente de Slots</h1>
+          </div>
+          <div class="card-body">
+            <p class="text-muted small">
+              Proyecta las pautas semanales activas en citas fechadas de transmisión para el rango seleccionado. Las fechas amparadas por licencias o justificaciones aprobadas se marcarán automáticamente como <em>Ausencia Justificada</em>.
+            </p>
+            {% crispy form %}
+          </div>
+          <div class="card-footer bg-transparent text-end">
+            <a href="{% url 'schedules:slot_list' %}" class="btn btn-outline-secondary btn-sm">Cancelar y Volver</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+{% endblock content %}

@@ -1,0 +1,385 @@
+{% extends "base.html" %}
+
+{% load crispy_forms_tags %}
+
+{% block title %}
+  {{ page_title|default:"Pauta Recurrente" }} | RRSS Creators Analyzer
+{% endblock title %}
+{% block content %}
+  <main id="main-content" class="container py-4">
+    <header class="d-flex justify-content-between align-items-center mb-4">
+      <div>
+        <h1 class="h3 mb-1">{{ page_title|default:"Configurar Pauta Recurrente" }}</h1>
+        <p class="text-body-secondary mb-0">Define horarios habituales de transmisión mediante reglas de recurrencia.</p>
+      </div>
+      {% if cancel_url %}
+        <a href="{{ cancel_url }}" class="btn btn-outline-secondary">Volver al listado</a>
+      {% else %}
+        <a href="{% url 'schedules:weekly_list' %}"
+           class="btn btn-outline-secondary">Volver al listado</a>
+      {% endif %}
+    </header>
+    <section aria-labelledby="form-heading" class="card shadow-sm">
+      <div class="card-header bg-transparent py-3">
+        <h2 id="form-heading" class="h6 mb-0">Parámetros de la Pauta</h2>
+      </div>
+      <div class="card-body">
+        <form method="post" id="pattern-form" novalidate>
+          {% csrf_token %}
+          {% if form.non_field_errors %}
+            <div class="alert alert-danger" role="alert">{{ form.non_field_errors }}</div>
+          {% endif %}
+          <div class="row g-3 mb-4">
+            <div class="col-md-6">{{ form.creator|as_crispy_field }}</div>
+            <div class="col-md-6">{{ form.title|as_crispy_field }}</div>
+            <div class="col-md-4">{{ form.channel|as_crispy_field }}</div>
+            <div class="col-md-4">{{ form.platform|as_crispy_field }}</div>
+            <div class="col-md-4">{{ form.category_or_game|as_crispy_field }}</div>
+          </div>
+          <!-- Card de Constructor de Recurrencia (RRULE) -->
+          <div class="card border-primary-subtle bg-light-subtle mb-4 shadow-sm">
+            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center py-2">
+              <span class="fw-semibold"><i class="bi bi-calendar-event me-2"></i>Constructor de Recurrencia (Agenda)</span>
+              <span class="badge bg-light text-primary">RFC 5545</span>
+            </div>
+            <div class="card-body">
+              <!-- Selector de Frecuencia -->
+              <div class="mb-3">
+                <label class="form-label fw-bold d-block">Frecuencia de Repetición</label>
+                <div class="btn-group w-100"
+                     role="group"
+                     aria-label="Frecuencia de repetición">
+                  <input type="radio"
+                         class="btn-check"
+                         name="builder_freq"
+                         id="freq_weekly"
+                         value="WEEKLY"
+                         checked />
+                  <label class="btn btn-outline-primary"
+                         for="freq_weekly"><i class="bi bi-calendar-week me-1"></i> Semanal</label>
+                  <input type="radio"
+                         class="btn-check"
+                         name="builder_freq"
+                         id="freq_daily"
+                         value="DAILY" />
+                  <label class="btn btn-outline-primary"
+                         for="freq_daily"><i class="bi bi-calendar-day me-1"></i> Diaria</label>
+                  <input type="radio"
+                         class="btn-check"
+                         name="builder_freq"
+                         id="freq_monthly"
+                         value="MONTHLY" />
+                  <label class="btn btn-outline-primary"
+                         for="freq_monthly"><i class="bi bi-calendar-month me-1"></i> Mensual</label>
+                </div>
+              </div>
+              <!-- Intervalo -->
+              <div class="row g-3 mb-3 align-items-end">
+                <div class="col-sm-6 col-md-4">
+                  <label for="builder_interval" class="form-label fw-bold">Repetir cada</label>
+                  <div class="input-group">
+                    <input type="number"
+                           id="builder_interval"
+                           class="form-control"
+                           value="1"
+                           min="1"
+                           max="52" />
+                    <span class="input-group-text" id="interval_label">semana(s)</span>
+                  </div>
+                </div>
+              </div>
+              <!-- Selección de Días (Semanal) -->
+              <div id="weekly_days_section" class="mb-3">
+                <div class="d-flex flex-wrap justify-content-between align-items-center mb-2 gap-2">
+                  <label class="form-label fw-bold mb-0">Días de la Semana</label>
+                  <div class="btn-group btn-group-sm"
+                       role="group"
+                       aria-label="Atajos de selección de días">
+                    <button type="button"
+                            class="btn btn-outline-secondary"
+                            id="btn_quick_weekdays">Lunes a Viernes</button>
+                    <button type="button"
+                            class="btn btn-outline-secondary"
+                            id="btn_quick_weekend">Fin de Semana</button>
+                    <button type="button" class="btn btn-outline-secondary" id="btn_quick_all">Todos los Días</button>
+                    <button type="button" class="btn btn-outline-secondary" id="btn_quick_clear">Desmarcar</button>
+                  </div>
+                </div>
+                <div class="d-flex flex-wrap gap-2"
+                     role="group"
+                     aria-label="Días específicos">
+                  <input type="checkbox"
+                         class="btn-check rrule-day"
+                         id="day_MO"
+                         value="MO"
+                         checked />
+                  <label class="btn btn-outline-primary px-3" for="day_MO">Lunes</label>
+                  <input type="checkbox" class="btn-check rrule-day" id="day_TU" value="TU" />
+                  <label class="btn btn-outline-primary px-3" for="day_TU">Martes</label>
+                  <input type="checkbox"
+                         class="btn-check rrule-day"
+                         id="day_WE"
+                         value="WE"
+                         checked />
+                  <label class="btn btn-outline-primary px-3" for="day_WE">Miércoles</label>
+                  <input type="checkbox" class="btn-check rrule-day" id="day_TH" value="TH" />
+                  <label class="btn btn-outline-primary px-3" for="day_TH">Jueves</label>
+                  <input type="checkbox"
+                         class="btn-check rrule-day"
+                         id="day_FR"
+                         value="FR"
+                         checked />
+                  <label class="btn btn-outline-primary px-3" for="day_FR">Viernes</label>
+                  <input type="checkbox" class="btn-check rrule-day" id="day_SA" value="SA" />
+                  <label class="btn btn-outline-primary px-3" for="day_SA">Sábado</label>
+                  <input type="checkbox" class="btn-check rrule-day" id="day_SU" value="SU" />
+                  <label class="btn btn-outline-primary px-3" for="day_SU">Domingo</label>
+                </div>
+              </div>
+              <!-- Resumen amigable en vivo -->
+              <div class="alert alert-info py-2 px-3 mt-3 mb-3 d-flex align-items-center"
+                   role="alert">
+                <i class="bi bi-info-circle-fill me-2 fs-5"></i>
+                <div>
+                  <span class="fw-bold">Resumen de la Pauta:</span>
+                  <span id="rrule_human_preview">Cada semana los Lunes, Miércoles y Viernes</span>
+                </div>
+              </div>
+              <!-- Modo Avanzado: RRULE Directa -->
+              <div class="accordion" id="accordionRrule">
+                <div class="accordion-item border rounded">
+                  <h3 class="accordion-header" id="headingRrule">
+                    <button class="accordion-button collapsed py-2 text-secondary bg-white small"
+                            type="button"
+                            data-bs-toggle="collapse"
+                            data-bs-target="#collapseRrule"
+                            aria-expanded="false"
+                            aria-controls="collapseRrule">
+                      <i class="bi bi-terminal me-2"></i> ¿Deseas introducir o editar la regla RRULE directamente?
+                    </button>
+                  </h3>
+                  <div id="collapseRrule"
+                       class="accordion-collapse collapse"
+                       aria-labelledby="headingRrule"
+                       data-bs-parent="#accordionRrule">
+                    <div class="accordion-body bg-light py-3">
+                      <label for="id_rrule_input" class="form-label small text-muted">
+                        Cadena estándar RFC 5545. Modificar este campo actualizará automáticamente los controles visuales:
+                      </label>
+                      {{ form.rrule }}
+                      {% if form.rrule.errors %}<div class="text-danger small mt-1">{{ form.rrule.errors }}</div>{% endif %}
+                      <div class="form-text small">
+                        Ejemplos: <code>FREQ=WEEKLY;BYDAY=MO,WE,FR;INTERVAL=1</code>, <code>FREQ=DAILY;INTERVAL=1</code>, <code>FREQ=WEEKLY;INTERVAL=2;BYDAY=SA,SU</code>.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- Horario y Duración -->
+          <div class="row g-3 mb-4">
+            <div class="col-md-4">{{ form.start_time|as_crispy_field }}</div>
+            <div class="col-md-4">{{ form.end_time|as_crispy_field }}</div>
+            <div class="col-md-4">{{ form.planned_duration_minutes|as_crispy_field }}</div>
+            <div class="col-md-12">{{ form.is_mandatory|as_crispy_field }}</div>
+          </div>
+          <!-- Vigencia y Estado -->
+          <div class="row g-3 mb-4">
+            <div class="col-md-6">{{ form.effective_from|as_crispy_field }}</div>
+            <div class="col-md-6">{{ form.effective_until|as_crispy_field }}</div>
+            <div class="col-md-12">{{ form.is_active|as_crispy_field }}</div>
+            <div class="col-md-12">{{ form.notes|as_crispy_field }}</div>
+          </div>
+          <footer class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
+            {% if cancel_url %}
+              <a href="{{ cancel_url }}" class="btn btn-outline-secondary">Cancelar</a>
+            {% else %}
+              <a href="{% url 'schedules:weekly_list' %}"
+                 class="btn btn-outline-secondary">Cancelar</a>
+            {% endif %}
+            <button type="submit" class="btn btn-primary px-4">
+              <i class="bi bi-save me-1"></i> Guardar Pauta
+            </button>
+          </footer>
+        </form>
+      </div>
+    </section>
+  </main>
+{% endblock content %}
+{% block inline_javascript %}
+  {{ block.super }}
+  <script>
+    document.addEventListener("DOMContentLoaded", function() {
+      const rruleInput = document.getElementById("id_rrule_input");
+      const intervalInput = document.getElementById("builder_interval");
+      const intervalLabel = document.getElementById("interval_label");
+      const weeklySection = document.getElementById("weekly_days_section");
+      const previewText = document.getElementById("rrule_human_preview");
+      const dayCheckboxes = document.querySelectorAll(".rrule-day");
+      const freqRadios = document.querySelectorAll('input[name="builder_freq"]');
+
+      const dayNames = {
+        "MO": "Lunes",
+        "TU": "Martes",
+        "WE": "Miércoles",
+        "TH": "Jueves",
+        "FR": "Viernes",
+        "SA": "Sábados",
+        "SU": "Domingos"
+      };
+
+      function getSelectedFreq() {
+        for (const r of freqRadios) {
+          if (r.checked) return r.value;
+        }
+        return "WEEKLY";
+      }
+
+      function getSelectedDays() {
+        const days = [];
+        dayCheckboxes.forEach(cb => {
+          if (cb.checked) days.push(cb.value);
+        });
+        return days;
+      }
+
+      function updateIntervalLabel(freq) {
+        if (freq === "DAILY") intervalLabel.textContent = "día(s)";
+        else if (freq === "WEEKLY") intervalLabel.textContent = "semana(s)";
+        else if (freq === "MONTHLY") intervalLabel.textContent = "mes(es)";
+      }
+
+      function buildRruleFromUI() {
+        const freq = getSelectedFreq();
+        const interval = parseInt(intervalInput.value) || 1;
+        let parts = [`FREQ=${freq}`];
+
+        if (interval > 1) {
+          parts.push(`INTERVAL=${interval}`);
+        }
+
+        if (freq === "WEEKLY") {
+          const days = getSelectedDays();
+          if (days.length > 0) {
+            parts.push(`BYDAY=${days.join(",")}`);
+          }
+        }
+
+        const rruleStr = parts.join(";");
+        rruleInput.value = rruleStr;
+        updateHumanPreview(freq, interval, getSelectedDays());
+      }
+
+      function updateHumanPreview(freq, interval, days) {
+        let text = "";
+        if (freq === "DAILY") {
+          text = interval === 1 ? "Todos los días" : `Cada ${interval} días`;
+        } else if (freq === "WEEKLY") {
+          const base = interval === 1 ? "Cada semana" : `Cada ${interval} semanas`;
+          if (days.length === 0) {
+            text = `${base} (sin días seleccionados)`;
+          } else {
+            const labels = days.map(d => dayNames[d] || d);
+            if (labels.length === 1) {
+              text = `${base} los ${labels[0]}`;
+            } else if (labels.length === 2) {
+              text = `${base} los ${labels[0]} y ${labels[1]}`;
+            } else {
+              text = `${base} los ${labels.slice(0, -1).join(", ")} y ${labels[labels.length - 1]}`;
+            }
+          }
+        } else if (freq === "MONTHLY") {
+          text = interval === 1 ? "Cada mes" : `Cada ${interval} meses`;
+        }
+        previewText.textContent = text;
+      }
+
+      function syncUIFromRrule(rruleStr) {
+        if (!rruleStr) return;
+        const clean = rruleStr.replace(/^RRULE:/i, "").trim();
+        const parts = clean.split(";");
+        let freq = "WEEKLY";
+        let interval = 1;
+        let days = [];
+
+        parts.forEach(p => {
+          const [k, v] = p.split("=");
+          if (!k || !v) return;
+          const key = k.trim().toUpperCase();
+          const val = v.trim().toUpperCase();
+
+          if (key === "FREQ") freq = val;
+          if (key === "INTERVAL") interval = parseInt(val) || 1;
+          if (key === "BYDAY") days = val.split(",").map(d => d.trim());
+        });
+
+        // Sincronizar Frecuencia
+        freqRadios.forEach(r => {
+          r.checked = (r.value === freq);
+        });
+        weeklySection.style.display = (freq === "WEEKLY") ? "block" : "none";
+        updateIntervalLabel(freq);
+
+        // Sincronizar Intervalo
+        intervalInput.value = interval;
+
+        // Sincronizar Días
+        dayCheckboxes.forEach(cb => {
+          cb.checked = days.includes(cb.value);
+        });
+
+        updateHumanPreview(freq, interval, days);
+      }
+
+      // Event Listeners
+      freqRadios.forEach(r => {
+        r.addEventListener("change", function() {
+          weeklySection.style.display = (this.value === "WEEKLY") ? "block" : "none";
+          updateIntervalLabel(this.value);
+          buildRruleFromUI();
+        });
+      });
+
+      intervalInput.addEventListener("input", buildRruleFromUI);
+      dayCheckboxes.forEach(cb => cb.addEventListener("change", buildRruleFromUI));
+
+      // Botones Rápidos
+      document.getElementById("btn_quick_weekdays").addEventListener("click", () => {
+        dayCheckboxes.forEach(cb => {
+          cb.checked = ["MO", "TU", "WE", "TH", "FR"].includes(cb.value);
+        });
+        buildRruleFromUI();
+      });
+
+      document.getElementById("btn_quick_weekend").addEventListener("click", () => {
+        dayCheckboxes.forEach(cb => {
+          cb.checked = ["SA", "SU"].includes(cb.value);
+        });
+        buildRruleFromUI();
+      });
+
+      document.getElementById("btn_quick_all").addEventListener("click", () => {
+        dayCheckboxes.forEach(cb => cb.checked = true);
+        buildRruleFromUI();
+      });
+
+      document.getElementById("btn_quick_clear").addEventListener("click", () => {
+        dayCheckboxes.forEach(cb => cb.checked = false);
+        buildRruleFromUI();
+      });
+
+      // Entrada Directa de RRULE
+      rruleInput.addEventListener("input", function() {
+        syncUIFromRrule(this.value);
+      });
+
+      // Inicialización
+      if (rruleInput.value) {
+        syncUIFromRrule(rruleInput.value);
+      } else {
+        buildRruleFromUI();
+      }
+    });
+  </script>
+{% endblock inline_javascript %}

@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block title %}
+  Calendario de Emisiones y Cumplimiento | RRSS Creators Analyzer
+{% endblock title %}
+
+{% block content %}
+<main id="main-content" class="container-fluid py-4">
+  <header class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+    <div>
+      <h1 class="h3 mb-1">Calendario de Emisiones y Cumplimiento</h1>
+      <p class="text-body-secondary mb-0">Visualización de compromisos de streaming, horarios estipulados y conciliación</p>
+    </div>
+    <div class="d-flex gap-2">
+      <a href="{% url 'schedules:slot_generate' %}" class="btn btn-primary">
+        <i class="bi bi-calendar-plus"></i> Generar Lote de Slots
+      </a>
+      <a href="{% url 'schedules:weekly_create' %}" class="btn btn-outline-secondary">
+        <i class="bi bi-clock-history"></i> Nueva Pauta Semanal
+      </a>
+      <a href="{% url 'schedules:exception_create' %}" class="btn btn-outline-warning">
+        <i class="bi bi-shield-plus"></i> Justificar Ausencia
+      </a>
+    </div>
+  </header>
+
+  <div class="card shadow-sm">
+    <div class="card-header bg-transparent py-3 d-flex justify-content-between align-items-center">
+      <h2 class="h6 mb-0">Próximos Compromisos y Citas Registradas</h2>
+      <span class="badge text-bg-secondary">{{ calendar_events|length }} eventos proyectados</span>
+    </div>
+    <div class="card-body">
+      {% if calendar_events %}
+        <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-3">
+          {% for ev in calendar_events %}
+            <div class="col">
+              <div class="card h-100 border-start border-4 {% if ev.status == 'completed' %}border-success{% elif ev.status == 'late' %}border-warning{% elif ev.status == 'missed' %}border-danger{% elif ev.status == 'justified' %}border-primary{% else %}border-secondary{% endif %} shadow-sm">
+                <div class="card-body">
+                  <div class="d-flex justify-content-between align-items-start mb-2">
+                    <span class="badge {% if ev.status == 'completed' %}bg-success{% elif ev.status == 'late' %}bg-warning text-dark{% elif ev.status == 'missed' %}bg-danger{% elif ev.status == 'justified' %}bg-primary{% else %}bg-secondary{% endif %}">
+                      {{ ev.status_display }}
+                    </span>
+                    <small class="text-muted">{{ ev.start|slice:":10" }}</small>
+                  </div>
+                  <h6 class="card-title mb-1">
+                    <a href="{{ ev.url }}" class="text-decoration-none text-dark fw-bold">{{ ev.title }}</a>
+                  </h6>
+                  <p class="card-text text-muted small mb-2">
+                    <i class="bi bi-clock"></i> {{ ev.start|slice:"11:16" }} - {{ ev.end|slice:"11:16" }}
+                  </p>
+                  <div class="d-flex justify-content-between align-items-center pt-2 border-top small">
+                    <span>Pactado: <strong>{{ ev.planned_hours }}h</strong></span>
+                    <span>Real: <strong>{{ ev.actual_hours }}h</strong></span>
+                  </div>
+                </div>
+                <div class="card-footer bg-transparent border-0 text-end pt-0">
+                  <a href="{{ ev.url }}" class="btn btn-sm btn-outline-primary">Ver Detalle</a>
+                </div>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="text-center py-5">
+          <p class="text-muted mb-3">No hay slots programados en el horizonte actual.</p>
+          <a href="{% url 'schedules:slot_generate' %}" class="btn btn-primary btn-sm">
+            Generar Slots desde Pautas Semanales
+          </a>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</main>
+{% endblock content %}

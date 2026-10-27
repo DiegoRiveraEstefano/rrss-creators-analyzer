@@ -1,0 +1,10 @@
+{% extends "core/crud_list.html" %}
+
+{% block content %}
+  <div class="mb-3 d-flex gap-2 justify-content-end px-3">
+    <a href="{% url 'schedules:compliance_recalculate' %}" class="btn btn-outline-success">
+      <i class="bi bi-calculator"></i> Recalcular Mes de Creador
+    </a>
+  </div>
+  {{ block.super }}
+{% endblock content %}

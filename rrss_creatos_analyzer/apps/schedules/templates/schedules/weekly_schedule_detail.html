@@ -1,0 +1,67 @@
+{% extends "core/crud_detail.html" %}
+
+{% block detail_body %}
+  <dl class="row mb-0">
+    <dt class="col-sm-4 text-body-secondary">Creador</dt>
+    <dd class="col-sm-8 fw-semibold">
+      <a href="{{ object.creator.get_absolute_url }}">{{ object.creator.display_name }}</a>
+    </dd>
+    <dt class="col-sm-4 text-body-secondary">Título del Patrón</dt>
+    <dd class="col-sm-8">
+      {{ object.title|default:"(Sin título específico)" }}
+    </dd>
+    <dt class="col-sm-4 text-body-secondary">Recurrencia (Lenguaje Natural)</dt>
+    <dd class="col-sm-8">
+      <span class="badge bg-primary fs-6">{{ object.human_recurrence }}</span>
+    </dd>
+    <dt class="col-sm-4 text-body-secondary">Regla Técnica (RRULE RFC 5545)</dt>
+    <dd class="col-sm-8">
+      <code class="bg-light p-1 border rounded text-dark">{{ object.rrule }}</code>
+    </dd>
+    <dt class="col-sm-4 text-body-secondary">Horario Pactado</dt>
+    <dd class="col-sm-8">
+      {{ object.start_time|time:"H:i" }} - {{ object.end_time|time:"H:i" }}
+      ({{ object.planned_duration_minutes }} minutos)
+    </dd>
+    <dt class="col-sm-4 text-body-secondary">Plataforma y Canal</dt>
+    <dd class="col-sm-8">
+      <span class="badge bg-secondary">{{ object.get_platform_display }}</span>
+      {% if object.channel %}<span class="ms-1">{{ object.channel.channel_name }}</span>{% endif %}
+    </dd>
+    <dt class="col-sm-4 text-body-secondary">Categoría / Temática</dt>
+    <dd class="col-sm-8">
+      {{ object.category_or_game }}
+    </dd>
+    <dt class="col-sm-4 text-body-secondary">Cómputo Obligatorio</dt>
+    <dd class="col-sm-8">
+      {% if object.is_mandatory %}
+        <span class="text-success fw-bold"><i class="bi bi-check-circle"></i> Sí, exigible contractualmente</span>
+      {% else %}
+        <span class="text-muted"><i class="bi bi-dash-circle"></i> No (Optativo)</span>
+      {% endif %}
+    </dd>
+    <dt class="col-sm-4 text-body-secondary">Vigencia</dt>
+    <dd class="col-sm-8">
+      Desde {{ object.effective_from|date:"d/m/Y" }}
+      {% if object.effective_until %}
+        hasta {{ object.effective_until|date:"d/m/Y" }}
+      {% else %}
+        (Indefinida)
+      {% endif %}
+    </dd>
+    <dt class="col-sm-4 text-body-secondary">Estado</dt>
+    <dd class="col-sm-8">
+      {% if object.is_active %}
+        <span class="badge bg-success">Activo</span>
+      {% else %}
+        <span class="badge bg-secondary">Inactivo</span>
+      {% endif %}
+    </dd>
+    {% if object.notes %}
+      <dt class="col-sm-4 text-body-secondary">Notas</dt>
+      <dd class="col-sm-8">
+        {{ object.notes|linebreaksbr }}
+      </dd>
+    {% endif %}
+  </dl>
+{% endblock detail_body %}
