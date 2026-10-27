@@ -1,6 +1,6 @@
 # Guías de Arquitectura e Ingeniería (GUIDELINES)
 
-Este documento establece los lineamientos técnicos obligatorios para el desarrollo en **RRSS Creators Analyzer**. Estas reglas están adaptadas a partir de [`/.agents/rules/`](file:///home/diego/Proyectos/rrss-creators-analyzer/.agents/rules) para responder específicamente a la naturaleza **single-tenant (única compañía)** del proyecto, sus restricciones de infraestructura (**SQLite + DiskCache**) y el uso intensivo del ecosistema de **Django 6.0**.
+Este documento establece los lineamientos técnicos obligatorios para el desarrollo en **RRSS Creators Analyzer**. Estas reglas están adaptadas a partir de [`/.agents/rules/`](file:///home/diego/Proyectos/rrss-creators-analyzer/.agents/rules) para responder específicamente a la naturaleza **single-tenant (única compañía)** del proyecto, sus especificaciones de infraestructura (**PostgreSQL + Redis** en producción, con soporte continuo de **SQLite + DiskCache** en local/tests) y el uso intensivo del ecosistema de **Django 6.0**.
 
 ---
 
@@ -10,8 +10,8 @@ Este documento establece los lineamientos técnicos obligatorios para el desarro
 1. **Límite de 400 líneas por archivo**: Ningún archivo `.py` debe superar las 400 líneas. Si un módulo crece más allá de este límite, debe dividirse en un paquete (`services/`, `selectors/`, `views/`, `tables/`, `wizards/`).
 2. **Separación estricta de responsabilidades**:
    - `models.py`: Definición de campos, `TextChoices`, metadatos, índices, `CheckConstraint`, `UniqueConstraint` y `GeneratedField`. **Cero lógica de negocio o llamadas externas**.
-   - `selectors.py`: Toda la lógica de lectura, filtrado por permisos de rol (`creator` vs `manager`/`analyst`), optimización `select_related`/`prefetch_related`, anotaciones (`annotate`) y consultas cacheadas en `DiskCache`. **Cero mutaciones**.
-   - `services.py`: Toda la lógica de escritura/mutación, validaciones de reglas de negocio, bloques `@transaction.atomic`, invalidación de `DiskCache` y registro de eventos/auditoría.
+   - `selectors.py`: Toda la lógica de lectura, filtrado por permisos de rol (`creator` vs `manager`/`analyst`), optimización `select_related`/`prefetch_related`, anotaciones (`annotate`) y consultas cacheadas (`cache.get_or_set`). **Cero mutaciones**.
+   - `services.py`: Toda la lógica de escritura/mutación, validaciones de reglas de negocio, bloques `@transaction.atomic`, invalidación de caché (`cache`) y registro de eventos/auditoría.
    - `tables.py`: Definición declarativa de tablas con **`django-tables2`**.
    - `filters.py`: Definición declarativa de filtros de búsqueda con **`django-filter`**.
    - `forms.py` / `wizards.py`: Formularios de Django con layouts de **`django-crispy-forms`** (`crispy-bootstrap5`), selectores con `django-autocomplete-light` y pasos de asistentes para **`django-formtools`**.
@@ -170,7 +170,7 @@ class CreatorOnboardingWizardView(
    - Ejemplo obligatorio en `StreamingSession` y `VideoPublication`: `CheckConstraint` asegurando que conteos (`views_count`, `avg_ccv`, `duration_seconds`) e ingresos sean `>= 0`.
 3. **Campos Monetarios y Calculados**:
    - Todos los montos financieros (`ad_revenue`, `subs_revenue`, `donations_revenue`, `total_earnings`, `production_cost`, `estimated_revenue`) deben usar `DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))`. Nunca usar `FloatField` para dinero.
-   - Usar `models.GeneratedField` (disponible en Django 5.0+/6.0 y soportado en SQLite 3.31+) para columnas calculadas deterministas como `hours_streamed`.
+   - Usar `models.GeneratedField` (disponible en Django 5.0+/6.0 y soportado en SQLite 3.31+ y PostgreSQL) para columnas calculadas deterministas como `hours_streamed`.
 4. **Auditoría Histórica**:
    - Registrar `history = HistoricalRecords()` de `django-simple-history` en los modelos críticos: `Creator`, `Channel`, `Video`, `VideoPublication` y `ChannelAlert`.
 
@@ -186,7 +186,7 @@ class CreatorOnboardingWizardView(
      - Si `user.role in (UserRole.COMPANY_ADMIN, UserRole.MANAGER, UserRole.ANALYST)`: retornar el conjunto completo de la compañía.
 3. **Prevención de Consultas N+1**:
    - Uso obligatorio de `select_related("creator", "channel")` en sesiones, publicaciones y alertas, y `prefetch_related("tags", "publications")` en videos y creadores.
-4. **Integración con DiskCache**:
+4. **Integración con Caché (`Redis` / `DiskCache`)**:
    - Los selectores analíticos pesados (rankings, resúmenes mensuales, métricas por plataforma que reemplazan a las antiguas vistas materializadas) deben usar `cache.get_or_set(key, callable, timeout=3600)`.
 
 ```python
@@ -258,10 +258,10 @@ class CreatorAnalyticsSelector:
    - Todos los servicios se implementan como clases sin estado con métodos `@classmethod`. No instanciar servicios (`Service()`).
 2. **Desacoplamiento de HTTP**:
    - Un servicio **nunca** recibe `HttpRequest`, `HttpResponse`, instancias de `Form` ni `WizardView`. Recibe tipos primitivos (`int`, `str`, `Decimal`, `datetime`), dataclasses o instancias de modelos.
-3. **Atomicidad y Compatibilidad con SQLite**:
+3. **Atomicidad y Compatibilidad de Base de Datos (PostgreSQL / SQLite)**:
    - Decorar todos los métodos de escritura con `@transaction.atomic`.
-   - En SQLite, mantener las transacciones lo más cortas y rápidas posible (no hacer peticiones HTTP externas ni procesamientos de archivos lentos dentro del bloque `transaction.atomic` antes de escribir).
-   - Registrar la invalidación de caché de `DiskCache` usando `transaction.on_commit(AnalyticsCacheService.invalidate_all)`.
+   - En PostgreSQL y SQLite, mantener las transacciones lo más limpias y rápidas posible (no hacer peticiones HTTP externas ni procesamientos pesados de archivos dentro del bloque `transaction.atomic` antes de persistir).
+   - Registrar la invalidación de caché usando `transaction.on_commit(AnalyticsCacheService.invalidate_all)`.
 4. **Cláusulas de Guarda (Fail-Fast)**:
    - Validar todas las precondiciones al inicio del método y lanzar `BusinessLogicError` (o `ValidationError` de dominio) si no se cumplen.
 
@@ -352,7 +352,7 @@ class StreamingSessionService:
 
 **Usos permitidos**:
 - Hooks internos de librerías auditadas como `django-simple-history`.
-- Configuración de `PRAGMA` en la señal `connection_created` de SQLite.
+- Configuración de `PRAGMA` en la señal `connection_created` cuando el motor sea SQLite.
 - Toda invalidación de caché o efecto secundario de negocio debe invocarse **explícitamente** dentro del método del `Service` mediante `transaction.on_commit(...)`.
 
 ---
@@ -397,7 +397,7 @@ class StreamingSessionService:
    - Cada método de `Service` debe contar con tests para:
      1. Caso exitoso (*happy path*) y persistencia correcta.
      2. Violación de cláusulas de guarda (`pytest.raises(BusinessLogicError)`).
-     3. Invalidación o actualización efectiva de las claves en `DiskCache`.
+     3. Invalidación o actualización efectiva de las claves en caché (`cache`).
 6. **Pruebas de Asistentes en Múltiples Pasos (`django-formtools`)**:
    - Testear individualmente la validación de cada formulario de paso (`test_forms.py`).
    - Testear la navegación del wizard con el cliente de pruebas de Django: simulación de envío de pasos con `management_form` (`<wizard_name>-current_step`), navegación hacia atrás (`wizard_goto_step`), persistencia de sesión entre pasos y verificación de que el método `done()` delega los datos al `Service` esperado.

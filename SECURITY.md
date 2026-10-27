@@ -1,6 +1,6 @@
 # Política de Seguridad (SECURITY)
 
-Este documento describe la arquitectura de seguridad, el control de acceso basado en el **sistema nativo de Permisos y Grupos de Django**, la protección de datos en **SQLite** y **DiskCache**, y el protocolo para reportar vulnerabilidades en **RRSS Creators Analyzer**.
+Este documento describe la arquitectura de seguridad, el control de acceso basado en el **sistema nativo de Permisos y Grupos de Django**, la protección de datos en **PostgreSQL**, **Redis**, **SQLite** y **DiskCache**, y el protocolo para reportar vulnerabilidades en **RRSS Creators Analyzer**.
 
 ---
 
@@ -20,7 +20,7 @@ Este documento describe la arquitectura de seguridad, el control de acceso basad
 
 ## 2. Autorización Basada en Grupos y Permisos de Django (`django.contrib.auth`)
 
-En el sistema anterior (ver [`old-migrations/20260904000004_rls_security_policies.sql`](file:///home/diego/Proyectos/rrss-creators-analyzer/old-migrations/20260904000004_rls_security_policies.sql)), el control de acceso se realizaba mediante políticas RLS en PostgreSQL. Al ser ahora una aplicación **single-tenant** en Django sobre SQLite, toda la autorización se gestiona mediante el **sistema nativo de Grupos (`Group`) y Permisos (`Permission`) de Django** (ver [`docs/schema.sql`](file:///home/diego/Proyectos/rrss-creators-analyzer/docs/schema.sql)).
+En el sistema anterior (ver [`old-migrations/20260904000004_rls_security_policies.sql`](file:///home/diego/Proyectos/rrss-creators-analyzer/old-migrations/20260904000004_rls_security_policies.sql)), el control de acceso se realizaba mediante políticas RLS en PostgreSQL. Al ser ahora una aplicación **single-tenant** en Django, toda la autorización se gestiona mediante el **sistema nativo de Grupos (`Group`) y Permisos (`Permission`) de Django** (ver [`docs/schema.sql`](file:///home/diego/Proyectos/rrss-creators-analyzer/docs/schema.sql)).
 
 - **Sin campos `role` harcodeados en `User`**: Un usuario puede pertenecer a uno o más grupos (`users_user_groups`) y recibir permisos granulares (`auth_group_permissions` y `users_user_user_permissions`).
 - **Verificación mediante `user.has_perm(...)` y `PermissionRequiredMixin`**: Las vistas y servicios validan permisos explícitos (`<app_label>.<codename>`) en lugar de comparar strings de roles.
@@ -47,20 +47,31 @@ En el sistema anterior (ver [`old-migrations/20260904000004_rls_security_policie
 
 ---
 
-## 3. Seguridad en Base de Datos (SQLite) y Caché (DiskCache)
+## 3. Seguridad en Base de Datos y Capa de Caché
 
-Dado que el despliegue utiliza **SQLite** y **DiskCache** en el sistema de archivos local:
+### 3.1 Producción (PostgreSQL y Redis)
+1. **Aislamiento de Red y Acceso**:
+   - Tanto el servicio `postgres` como `redis` operan en una red privada virtual de Docker sin necesidad de exponer puertos al exterior en entornos de producción cerrados.
+   - Las credenciales se inyectan mediante variables de entorno seguras (`DATABASE_URL`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `REDIS_URL`) sin quedar fijadas en archivos versionados.
+2. **Atomicidad Transaccional**:
+   - `ATOMIC_REQUESTS = True` en la conexión de PostgreSQL garantiza que cada petición HTTP sea tratada como una transacción atómica, haciendo rollback ante cualquier excepción no controlada.
+3. **Caché en Redis**:
+   - Las claves analíticas y datos cacheados en Redis están protegidos por el aislamiento del contenedor.
+   - Si Redis se despliega en un cluster externo, soporta autenticación por contraseña y túnel TLS (`rediss://`).
 
+### 3.2 Desarrollo Local (SQLite y DiskCache)
 1. **Permisos de Sistema de Archivos**:
-   - El archivo de base de datos (`db.sqlite3`, junto con `db.sqlite3-wal` y `db.sqlite3-shm`) y el directorio de caché (`.cache/diskcache/`) deben residir **fuera** de los directorios servidos públicamente (`STATIC_ROOT` y `MEDIA_ROOT`).
-   - Los permisos en el servidor deben restringirse a `0600` (archivos) y `0700` (directorios), perteneciendo exclusivamente al usuario de sistema que ejecuta el proceso WSGI/ASGI.
-2. **Prevención de Inyección SQL**:
+   - El archivo de base de datos (`db.sqlite3`, `db.sqlite3-wal`, `db.sqlite3-shm`) y el directorio de caché (`.cache/diskcache/`) deben residir **fuera** de los directorios servidos públicamente (`STATIC_ROOT` y `MEDIA_ROOT`).
+   - Restringidos a `0600` (archivos) y `0700` (directorios) para el usuario de desarrollo.
+
+### 3.3 Reglas Comunes de Persistencia e Integridad
+1. **Prevención de Inyección SQL**:
    - Queda **estrictamente prohibido** interpolar cadenas en consultas SQL (`raw()`, `extra()` o cursores directos).
    - Toda consulta analítica o de filtrado debe construirse utilizando el ORM de Django (`QuerySet`, `F`, `Q`, `Value`, `Window`) y `django-filter`.
-3. **Seguridad en Importación de Archivos (`django-import-export`)**:
+2. **Seguridad en Importación de Archivos (`django-import-export`)**:
    - Validar el tamaño máximo de archivo subido (`DATA_UPLOAD_MAX_MEMORY_SIZE`) y permitir únicamente extensiones explícitas (`.csv`, `.xlsx`).
    - Sanitizar fórmulas en exportaciones/importaciones CSV/Excel para prevenir ataques de **CSV Formula Injection** (prefijar celdas que comiencen con `=`, `+`, `-`, `@`).
-4. **Auditoría Inmutable (`django-simple-history`)**:
+3. **Auditoría Inmutable (`django-simple-history`)**:
    - Todas las modificaciones sobre creadores, contratos, canales, costos de producción de videos, ingresos estimados y resoluciones de alertas/strikes quedan registradas con fecha, hora y usuario autor (`history_user`).
 
 ---

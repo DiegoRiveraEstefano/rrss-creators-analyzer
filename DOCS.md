@@ -3,7 +3,7 @@
 Este documento describe en detalle la arquitectura, el modelo de dominio, la transición desde las migraciones antiguas ([`old-migrations/`](file:///home/diego/Proyectos/rrss-creators-analyzer/old-migrations)) y las decisiones de infraestructura de **RRSS Creators Analyzer**.
 
 > [!NOTE]
-> El esquema físico completo en SQLite 3 (DDL con tablas, restricciones `CHECK`, columnas generadas e índices) se encuentra en [`docs/schema.sql`](file:///home/diego/Proyectos/rrss-creators-analyzer/docs/schema.sql).
+> El esquema físico en SQL (DDL con tablas, restricciones `CHECK`, columnas generadas e índices) se encuentra referenciado en [`docs/schema.sql`](file:///home/diego/Proyectos/rrss-creators-analyzer/docs/schema.sql).
 
 ---
 
@@ -17,11 +17,12 @@ Este documento describe en detalle la arquitectura, el modelo de dominio, la tra
    - Se elimina toda la sobrecarga de tablas `organizations`, `organization_members` y el filtrado obligatorio por `organization_id` / `tenant_id`.
 2. **Autorización mediante el Sistema Nativo de Permisos y Grupos de Django (`django.contrib.auth`)**:
    - No se acopla una columna `role` en el modelo `User`. Toda la gestión de roles y capacidades se delega a **`Group`** (`auth_group`), **`Permission`** (`auth_permission`), `users_user_groups` y `users_user_user_permissions` junto con permisos personalizados en `Meta.permissions`.
-3. **Persistencia con SQLite en Modo WAL**:
-   - Por restricciones en el entorno de despliegue, la base de datos de producción y desarrollo es **SQLite 3**.
-   - Se configura con `journal_mode=WAL` (Write-Ahead Logging) para permitir lecturas concurrentes sin bloqueo durante las escrituras.
-4. **Caché con DiskCache y Memoria**:
-   - En lugar de requerir servidores externos de caché o vistas materializadas de PostgreSQL, el sistema emplea **`diskcache.DjangoCache`** (persistente en disco y seguro entre procesos) junto con caché en memoria para almacenar métricas precalculadas, rankings y resúmenes financieros.
+3. **Persistencia con PostgreSQL en Producción y SQLite WAL en Desarrollo/Tests**:
+   - En **producción**, el sistema utiliza **PostgreSQL** mediante `psycopg` 3 (`django.db.backends.postgresql`), con `ATOMIC_REQUESTS = True` y persistencia orquestada en Docker Compose (`postgres:16-alpine`).
+   - En **desarrollo local y suite de tests**, se soporta de forma transparente **SQLite 3** (`journal_mode=WAL` para lecturas concurrentes sin bloqueo) facilitando un entorno ligero sin dependencias pesadas.
+4. **Caché y Tareas Asíncronas con Redis en Producción (y DiskCache en Local)**:
+   - En **producción**, el sistema utiliza **Redis** mediante `django-redis` (`CACHES["default"]`) y como broker y result backend de Celery / Celery Beat.
+   - En **desarrollo**, emplea **`diskcache.DjangoCache`** (persistente en disco y seguro entre procesos) y `LocMemCache` para almacenar métricas precalculadas sin requerir servicios externos si no están disponibles.
 5. **Maximización del Ecosistema Django**:
    - Uso intensivo del ORM de Django (`annotate`, `aggregate`, `Window`, `F`, `Q`, `Case/When`, `GeneratedField`), Class-Based Views (CBVs), `PermissionRequiredMixin`, `django-tables2`, `django-filter`, `django-crispy-forms`, `django-widget-tweaks` y **`django-formtools`** (para flujos asistidos y formularios en múltiples pasos / wizards).
 
@@ -31,14 +32,14 @@ Este documento describe en detalle la arquitectura, el modelo de dominio, la tra
 
 Las migraciones del sistema anterior se conservan como referencia histórica en [`/old-migrations/`](file:///home/diego/Proyectos/rrss-creators-analyzer/old-migrations). A continuación se detalla cómo se mapea cada archivo SQL antiguo hacia la nueva arquitectura en Django:
 
-| Archivo en `old-migrations/` | Propósito en el Sistema Antiguo | Adaptación en Django (Single-Tenant + SQLite) |
+| Archivo en `old-migrations/` | Propósito en el Sistema Antiguo | Adaptación en Django (Single-Tenant + PostgreSQL / SQLite) |
 |---|---|---|
 | [`20260904000001_initial_multi_tenant_schema.sql`](file:///home/diego/Proyectos/rrss-creators-analyzer/old-migrations/20260904000001_initial_multi_tenant_schema.sql) | Enums (`member_role`, `creator_status`, `platform_type`, etc.), tablas `organizations`, `profiles`, `organization_members`. | Los Enums de dominio pasan a ser subclases de `models.TextChoices`. Se descartan `organizations` y `organization_members`. `member_role` se migra íntegramente al sistema nativo de **Grupos y Permisos de Django** (`auth_group`, `auth_permission`). |
 | [`20260904000002_creators_and_streaming_sessions.sql`](file:///home/diego/Proyectos/rrss-creators-analyzer/old-migrations/20260904000002_creators_and_streaming_sessions.sql) | Tablas `creators`, `channels`, `import_batches` y `streaming_sessions` (con columna generada `hours_streamed`). | Modelos `Creator`, `Channel` (app `creators`), `ImportBatch` (app `imports`) y `StreamingSession` (app `streams`). Se usa `models.GeneratedField` para `hours_streamed`, `total_earnings` y `earnings_per_hour`. Sin `organization_id`. |
 | [`20260904000003_channel_alerts_and_strikes.sql`](file:///home/diego/Proyectos/rrss-creators-analyzer/old-migrations/20260904000003_channel_alerts_and_strikes.sql) | Tabla `channel_alerts` para strikes de DMCA, TOS, caídas de tráfico y anomalías. | Modelo `ChannelAlert` (app `alerts`) con historial de cambios (`HistoricalRecords` de `django-simple-history`). |
 | [`20260904000004_rls_security_policies.sql`](file:///home/diego/Proyectos/rrss-creators-analyzer/old-migrations/20260904000004_rls_security_policies.sql) y [`0006`](file:///home/diego/Proyectos/rrss-creators-analyzer/old-migrations/20260904000006_fix_organization_creation_rls.sql) | Políticas RLS en PostgreSQL (`is_org_admin`, `get_user_creator_ids`). | Reemplazado por el sistema de permisos de Django (`user.has_perm(...)`, `PermissionRequiredMixin`) y filtrado en la capa `Selector` (si el usuario tiene el permiso `creators.view_all_creators` o `streams.view_all_sessions` ve todo el catálogo; de lo contrario, solo ve los registros vinculados a su `creator_profile`). |
 | [`20260904000005_published_videos...`](file:///home/diego/Proyectos/rrss-creators-analyzer/old-migrations/20260904000005_published_videos_and_materialized_views.sql) y [`0007_refactor_video_schema_three_entities.sql`](file:///home/diego/Proyectos/rrss-creators-analyzer/old-migrations/20260904000007_refactor_video_schema_three_entities.sql) | Refactorización de videos en 3 entidades: `videos`, `video_publications` y `video_relations`. | Modelos `Video`, `VideoPublication` y `VideoRelation` (app `videos`), usando `TaggableManager` (`django-taggit`) para `tags` en lugar de `TEXT[]` de PostgreSQL, y `CheckConstraint` en `VideoRelation`. |
-| [`20260904000008_materialized_and_sql_views...`](file:///home/diego/Proyectos/rrss-creators-analyzer/old-migrations/20260904000008_materialized_and_sql_views_with_triggers.sql), [`0009`](file:///home/diego/Proyectos/rrss-creators-analyzer/old-migrations/20260904000009_secure_views_revoke_mv_and_pg_cron.sql) y [`0010`](file:///home/diego/Proyectos/rrss-creators-analyzer/old-migrations/20260904000010_enforce_strict_multitenant_view_isolation.sql) | Vistas materializadas (`mv_*`), vistas SQL (`v_*`) y triggers de refresco concurrente en PostgreSQL. | Como SQLite no soporta `MATERIALIZED VIEW`, se definen vistas SQL estándar (`CREATE VIEW`) en [`docs/schema.sql`](file:///home/diego/Proyectos/rrss-creators-analyzer/docs/schema.sql) y consultas en **`AnalyticsSelector`** mediante el ORM de Django (`annotate`, `Window(expression=DenseRank())`, `TruncDay`, `TruncMonth`) cuyos resultados se almacenan en **`DiskCache`** con invalidación explícita desde la capa `Service`. |
+| [`20260904000008_materialized_and_sql_views...`](file:///home/diego/Proyectos/rrss-creators-analyzer/old-migrations/20260904000008_materialized_and_sql_views_with_triggers.sql), [`0009`](file:///home/diego/Proyectos/rrss-creators-analyzer/old-migrations/20260904000009_secure_views_revoke_mv_and_pg_cron.sql) y [`0010`](file:///home/diego/Proyectos/rrss-creators-analyzer/old-migrations/20260904000010_enforce_strict_multitenant_view_isolation.sql) | Vistas materializadas (`mv_*`), vistas SQL (`v_*`) y triggers de refresco concurrente en PostgreSQL. | Sustituidas por vistas SQL y consultas en **`AnalyticsSelector`** mediante el ORM de Django (`annotate`, `Window(expression=DenseRank())`, `TruncDay`, `TruncMonth`) cuyos resultados se almacenan en caché (`Redis` en producción / `DiskCache` en local) con invalidación explícita desde la capa `Service`. |
 
 ---
 
@@ -70,7 +71,7 @@ Además de los permisos CRUD automáticos de Django (`add_<model>`, `change_<mod
 - `alerts.view_all_alerts`: Ver las alertas y strikes de todos los canales.
 - `alerts.resolve_channel_alert`: Marcar alertas/strikes como resueltos o apelados.
 - `analytics.view_company_dashboard`: Ver el dashboard consolidado y el ranking global de la compañía.
-- `analytics.refresh_analytics_cache`: Invalidar y recalcular manualmente el caché analítico en `DiskCache`.
+- `analytics.refresh_analytics_cache`: Invalidar y recalcular manualmente el caché analítico en `Redis` / `DiskCache`.
 
 ---
 
