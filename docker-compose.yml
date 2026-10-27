@@ -3,6 +3,7 @@ services:
     image: postgres:16-alpine
     container_name: rrss_creators_analyzer_postgres
     restart: unless-stopped
+    env_file: ".env"
     environment:
       - POSTGRES_DB=${POSTGRES_DB:-rrss_creatos_analyzer}
       - POSTGRES_USER=${POSTGRES_USER:-debug}
@@ -21,6 +22,7 @@ services:
     image: redis:7-alpine
     container_name: rrss_creators_analyzer_redis
     restart: unless-stopped
+    env_file: ".env"
     ports:
       - "6379:6379"
     volumes:
@@ -38,6 +40,7 @@ services:
     image: rrss_creators_analyzer_web:latest
     container_name: rrss_creators_analyzer_web
     restart: unless-stopped
+    env_file: ".env"
     ports:
       - "8000:8000"
     environment:
@@ -65,6 +68,7 @@ services:
     container_name: rrss_creators_analyzer_celery_worker
     restart: unless-stopped
     command: /start-worker.sh
+    env_file: ".env"
     environment:
       - DJANGO_SETTINGS_MODULE=config.settings.production
       - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY:-o0leIAkogjYB3XEZYQH5zMsgpZSjdK2iukGFtId7hN9hVL9ejkIDfm3FWE1NbPr4}
@@ -91,6 +95,7 @@ services:
     container_name: rrss_creators_analyzer_celery_beat
     restart: unless-stopped
     command: /start-beat.sh
+    env_file: ".env"
     environment:
       - DJANGO_SETTINGS_MODULE=config.settings.production
       - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY:-o0leIAkogjYB3XEZYQH5zMsgpZSjdK2iukGFtId7hN9hVL9ejkIDfm3FWE1NbPr4}
