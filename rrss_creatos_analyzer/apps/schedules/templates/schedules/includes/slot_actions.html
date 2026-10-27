@@ -1,0 +1,14 @@
+<div class="btn-group btn-group-sm" role="group" aria-label="Acciones">
+  <a href="{% url 'schedules:slot_detail' record.pk %}"
+     class="btn btn-outline-secondary">Ver</a>
+  <a href="{% url 'schedules:slot_update' record.pk %}"
+     class="btn btn-outline-primary">Editar</a>
+  <form method="post" action="{% url 'schedules:slot_reconcile' record.pk %}" class="d-inline">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-outline-warning" title="Conciliar con Streaming Session">
+      <i class="bi bi-arrow-repeat"></i> Conciliar
+    </button>
+  </form>
+  <a href="{% url 'schedules:slot_delete' record.pk %}"
+     class="btn btn-outline-danger">Eliminar</a>
+</div>

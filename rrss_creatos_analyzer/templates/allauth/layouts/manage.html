@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% load i18n %}
+
+{% block title %}
+  {% block head_title %}
+    {% translate "Mi Cuenta" %}
+  {% endblock head_title %}
+  | RRSS Creators Analyzer
+{% endblock title %}
+{% block main %}
+  <main id="main-content" class="py-4">
+    <div class="row g-4">
+      <aside class="col-lg-3">
+        <article class="card border-0 shadow-sm">
+          <header class="card-header bg-white py-3">
+            <h2 class="h6 mb-0 fw-bold">{% translate "Configuración de Cuenta" %}</h2>
+          </header>
+          <div class="list-group list-group-flush">
+            {% if request.user.is_authenticated %}
+              <a href="{% url 'users:detail' request.user.username %}"
+                 class="list-group-item list-group-item-action">{% translate "Mi Perfil" %}</a>
+              <a href="{% url 'users:update' %}"
+                 class="list-group-item list-group-item-action">{% translate "Editar Información" %}</a>
+            {% endif %}
+            <a href="{% url 'account_email' %}"
+               class="list-group-item list-group-item-action">{% translate "Direcciones de Email" %}</a>
+            <a href="{% url 'account_change_password' %}"
+               class="list-group-item list-group-item-action">{% translate "Cambiar Contraseña" %}</a>
+            <a href="{% url 'mfa_index' %}"
+               class="list-group-item list-group-item-action">{% translate "Autenticación MFA (2FA)" %}</a>
+            <a href="{% url 'account_logout' %}"
+               class="list-group-item list-group-item-action text-danger">{% translate "Cerrar Sesión" %}</a>
+          </div>
+        </article>
+      </aside>
+      <section class="col-lg-9">
+        <article class="card border-0 shadow-sm">
+          <div class="card-body p-4">
+            {% block content %}
+            {% endblock content %}
+            {% block extra_body %}
+            {% endblock extra_body %}
+          </div>
+        </article>
+      </section>
+    </div>
+  </main>
+{% endblock main %}

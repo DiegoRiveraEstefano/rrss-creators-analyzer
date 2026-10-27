@@ -1,6 +1,0 @@
-name = "rrss-creators-analyzer"
-compatibility_date = "2026-09-05"
-
-[assets]
-directory = "./build"
-not_found_handling = "single-page-application"

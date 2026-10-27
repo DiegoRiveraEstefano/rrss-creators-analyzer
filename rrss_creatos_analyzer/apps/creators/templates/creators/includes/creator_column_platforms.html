@@ -1,0 +1,13 @@
+<div class="d-flex flex-wrap gap-1 align-items-center">
+  {% for channel in record.channels.all %}
+    <a href="{% url 'creators:channel_detail' channel.pk %}"
+       class="badge text-decoration-none {% if channel.platform == 'twitch' %}text-bg-primary{% elif channel.platform == 'youtube' %}text-bg-danger{% elif channel.platform == 'kick' %}text-bg-success{% elif channel.platform == 'tiktok' %}text-bg-dark{% else %}text-bg-secondary{% endif %}"
+       title="{{ channel.get_platform_display }}: {{ channel.platform_channel_id }} ({{ channel.followers_count }} seg.)">
+      {% if channel.is_primary %}<i class="bi bi-star-fill text-warning me-1"></i>{% endif %}
+      {{ channel.get_platform_display }}
+      {% if channel.is_live %}<span class="badge bg-danger ms-1 p-1">●</span>{% endif %}
+    </a>
+  {% empty %}
+    <span class="text-body-secondary small fst-italic">Sin canales</span>
+  {% endfor %}
+</div>

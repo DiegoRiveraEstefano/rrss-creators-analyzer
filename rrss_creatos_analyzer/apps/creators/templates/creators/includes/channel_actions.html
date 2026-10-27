@@ -1,0 +1,35 @@
+<div class="d-flex align-items-center gap-1">
+  <div class="btn-group btn-group-sm" role="group" aria-label="Acciones">
+    <a href="{% url 'creators:channel_detail' record.pk %}"
+       class="btn btn-outline-secondary"
+       title="Ver Detalle">
+      <i class="bi bi-eye"></i>
+    </a>
+    <a href="{% url 'creators:channel_update' record.pk %}"
+       class="btn btn-outline-primary"
+       title="Editar">
+      <i class="bi bi-pencil"></i>
+    </a>
+    <a href="{% url 'creators:channel_delete' record.pk %}"
+       class="btn btn-outline-danger"
+       title="Eliminar">
+      <i class="bi bi-trash"></i>
+    </a>
+  </div>
+
+  {% if not record.is_primary %}
+    <form method="post" action="{% url 'creators:channel_set_primary' record.pk %}" class="d-inline">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-sm btn-outline-warning" title="Establecer como Canal Principal">
+        <i class="bi bi-star"></i>
+      </button>
+    </form>
+  {% endif %}
+
+  <form method="post" action="{% url 'creators:channel_toggle_sync' record.pk %}" class="d-inline">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-sm {% if record.sync_enabled %}btn-outline-success{% else %}btn-outline-secondary{% endif %}" title="{% if record.sync_enabled %}Pausar Sincronización{% else %}Activar Sincronización{% endif %}">
+      <i class="bi {% if record.sync_enabled %}bi-arrow-repeat{% else %}bi-pause-circle{% endif %}"></i>
+    </button>
+  </form>
+</div>

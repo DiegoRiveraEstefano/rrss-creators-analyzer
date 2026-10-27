@@ -1,0 +1,52 @@
+{% extends "core/crud_detail.html" %}
+
+{% block detail_body %}
+  {{ block.super }}
+
+  <hr class="my-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h3 class="h6 mb-0">Versiones y Rondas de Revisión</h3>
+    <a href="{% url 'editors:revision_create' object.pk %}" class="btn btn-sm btn-primary">
+      + Enviar Nuevo Corte / Versión
+    </a>
+  </div>
+
+  {% if revisions %}
+    <div class="table-responsive">
+      <table class="table table-sm table-hover align-middle mb-0">
+        <thead>
+          <tr>
+            <th>Versión</th>
+            <th>Estado</th>
+            <th>Enviado</th>
+            <th>Revisado</th>
+            <th>Corte</th>
+            <th>Feedback</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for rev in revisions %}
+            <tr>
+              <td><span class="badge bg-secondary">v{{ rev.revision_number }}</span></td>
+              <td><span class="badge bg-info">{{ rev.get_status_display }}</span></td>
+              <td>{{ rev.submitted_at|date:"SHORT_DATETIME_FORMAT" }}</td>
+              <td>{{ rev.reviewed_at|date:"SHORT_DATETIME_FORMAT"|default:"—" }}</td>
+              <td>
+                <a href="{{ rev.render_url }}" target="_blank" rel="noopener noreferrer" class="btn btn-xs btn-outline-primary">
+                  Ver Corte
+                </a>
+              </td>
+              <td class="small">{{ rev.feedback_notes|truncatewords:8|default:"—" }}</td>
+              <td>
+                <a href="{% url 'editors:revision_detail' rev.pk %}" class="btn btn-sm btn-link text-decoration-none">Detalles</a>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="text-body-secondary small mb-0">Aún no se han enviado versiones de corte para esta tarea.</p>
+  {% endif %}
+{% endblock detail_body %}

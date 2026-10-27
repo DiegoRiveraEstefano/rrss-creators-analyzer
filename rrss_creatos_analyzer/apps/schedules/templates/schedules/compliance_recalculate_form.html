@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% load crispy_forms_tags %}
+
+{% block title %}
+  Recalcular Auditoría de Cumplimiento | RRSS Creators Analyzer
+{% endblock title %}
+
+{% block content %}
+  <main id="main-content" class="container py-4">
+    <div class="row justify-content-center">
+      <div class="col-12 col-md-8 col-lg-6">
+        <div class="card shadow-sm">
+          <div class="card-header bg-success text-white py-3">
+            <h1 class="h5 mb-0">Auditoría y Recálculo Mensual</h1>
+          </div>
+          <div class="card-body">
+            <p class="text-muted small">
+              Recalcula y consolida las horas pactadas, horas transmitidas, inasistencias y puntualidad para el creador y periodo seleccionado.
+            </p>
+            {% crispy form %}
+          </div>
+          <div class="card-footer bg-transparent text-end">
+            <a href="{% url 'schedules:compliance_list' %}" class="btn btn-outline-secondary btn-sm">Cancelar y Volver</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+{% endblock content %}

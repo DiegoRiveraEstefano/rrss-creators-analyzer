@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% load crispy_forms_tags %}
+
+{% block title %}
+  Datos Personales de {{ creator.display_name }} | RRSS Creators Analyzer
+{% endblock title %}
+
+{% block content %}
+<main id="main-content" class="container py-4">
+  <nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{% url 'creators:creator_list' %}">Creadores</a></li>
+      <li class="breadcrumb-item"><a href="{% url 'creators:creator_detail' creator.pk %}">{{ creator.display_name }}</a></li>
+      <li class="breadcrumb-item active" aria-current="page">Datos Personales y Fiscales</li>
+    </ol>
+  </nav>
+
+  <header class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+    <div>
+      <h1 class="h3 mb-1">Datos Personales y Fiscales</h1>
+      <p class="text-body-secondary mb-0">Información confidencial, fiscal, bancaria y de contacto directo para {{ creator.display_name }} (@{{ creator.handle }})</p>
+    </div>
+    <div>
+      <a href="{% url 'creators:creator_detail' creator.pk %}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> Volver a la Ficha
+      </a>
+    </div>
+  </header>
+
+  <article class="card shadow-sm border-0">
+    <div class="card-header bg-transparent py-3">
+      <div class="d-flex align-items-center gap-2">
+        <span class="badge text-bg-warning"><i class="bi bi-shield-lock-fill"></i> Nivel Confidencial</span>
+        <span class="text-muted small">Visible únicamente para Administradores, Managers y Personal Legal</span>
+      </div>
+    </div>
+    <div class="card-body p-4">
+      <form method="post" novalidate>
+        {% csrf_token %}
+        {% crispy form %}
+
+        <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
+          <a href="{% url 'creators:creator_detail' creator.pk %}" class="btn btn-outline-secondary">
+            Cancelar
+          </a>
+          <button type="submit" class="btn btn-primary px-4">
+            <i class="bi bi-save"></i> Guardar Datos Personales y Fiscales
+          </button>
+        </div>
+      </form>
+    </div>
+  </article>
+</main>
+{% endblock content %}

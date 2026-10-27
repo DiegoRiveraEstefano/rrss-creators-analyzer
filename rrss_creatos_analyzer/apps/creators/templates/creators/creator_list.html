@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+
+{% load django_tables2 %}
+{% load widget_tweaks %}
+
+{% block title %}
+  {{ page_title|default:"Directorio de Creadores" }} | RRSS Creators Analyzer
+{% endblock title %}
+
+{% block content %}
+  <main id="main-content" class="container-fluid py-4">
+    <!-- Header -->
+    <header class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+      <div>
+        <h1 class="h3 mb-1">{{ page_title|default:"Directorio de Creadores" }}</h1>
+        <p class="text-body-secondary mb-0">{{ page_subtitle|default:"Gestión integral de talentos, canales y métricas" }}</p>
+      </div>
+      <div class="d-flex gap-2">
+        <a href="{% url 'creators:channel_list' %}" class="btn btn-outline-secondary">
+          <i class="bi bi-broadcast"></i> Ver Todos los Canales
+        </a>
+        {% if create_url %}
+          <a href="{{ create_url }}" class="btn btn-primary">
+            <i class="bi bi-plus-lg"></i> Registrar Creador
+          </a>
+        {% endif %}
+      </div>
+    </header>
+
+    <!-- KPI Summary Cards -->
+    {% if kpis %}
+      <section aria-label="Métricas clave de creadores" class="row g-3 mb-4">
+        <div class="col-12 col-sm-6 col-xl-3">
+          <div class="card shadow-sm border-0 border-start border-primary border-4 h-100">
+            <div class="card-body d-flex align-items-center justify-content-between">
+              <div>
+                <span class="text-body-secondary text-uppercase fw-semibold small">Total Creadores</span>
+                <h3 class="h2 mb-0 mt-1 font-monospace">{{ kpis.total_creators }}</h3>
+              </div>
+              <div class="fs-1 text-primary opacity-50">
+                <i class="bi bi-people-fill"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-12 col-sm-6 col-xl-3">
+          <div class="card shadow-sm border-0 border-start border-success border-4 h-100">
+            <div class="card-body d-flex align-items-center justify-content-between">
+              <div>
+                <span class="text-body-secondary text-uppercase fw-semibold small">Activos</span>
+                <h3 class="h2 mb-0 mt-1 text-success font-monospace">{{ kpis.active_creators }}</h3>
+              </div>
+              <div class="fs-1 text-success opacity-50">
+                <i class="bi bi-check-circle-fill"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-12 col-sm-6 col-xl-3">
+          <div class="card shadow-sm border-0 border-start border-danger border-4 h-100">
+            <div class="card-body d-flex align-items-center justify-content-between">
+              <div>
+                <span class="text-body-secondary text-uppercase fw-semibold small">En Vivo Ahora</span>
+                <h3 class="h2 mb-0 mt-1 text-danger font-monospace">{{ kpis.live_now_creators }}</h3>
+              </div>
+              <div class="fs-1 text-danger opacity-50">
+                <i class="bi bi-broadcast-pin"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-12 col-sm-6 col-xl-3">
+          <div class="card shadow-sm border-0 border-start border-info border-4 h-100">
+            <div class="card-body d-flex align-items-center justify-content-between">
+              <div>
+                <span class="text-body-secondary text-uppercase fw-semibold small">Con Canales Vinculados</span>
+                <h3 class="h2 mb-0 mt-1 text-info font-monospace">{{ kpis.creators_with_channels }}</h3>
+              </div>
+              <div class="fs-1 text-info opacity-50">
+                <i class="bi bi-share-fill"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    {% endif %}
+
+    <!-- Filtros de búsqueda -->
+    {% if filter %}
+      <aside aria-label="Filtros de búsqueda" class="card shadow-sm mb-4">
+        <div class="card-body">
+          <form method="get" class="row g-3 align-items-end">
+            {% for field in filter.form %}
+              <div class="col-12 col-sm-6 col-md-3">
+                <label for="{{ field.id_for_label }}" class="form-label small fw-semibold mb-1">
+                  {{ field.label }}
+                </label>
+                {% render_field field class+="form-control form-control-sm" %}
+              </div>
+            {% endfor %}
+            <div class="col-12 col-md-auto d-flex gap-2">
+              <button type="submit" class="btn btn-sm btn-primary px-3">
+                <i class="bi bi-funnel"></i> Filtrar
+              </button>
+              <a href="{{ request.path }}" class="btn btn-sm btn-outline-secondary">Limpiar</a>
+            </div>
+          </form>
+        </div>
+      </aside>
+    {% endif %}
+
+    <!-- Tabla de creadores -->
+    <section aria-labelledby="table-section-heading" class="card shadow-sm">
+      <div class="card-header bg-transparent py-3 d-flex justify-content-between align-items-center">
+        <h2 id="table-section-heading" class="h6 mb-0">Talentos Registrados</h2>
+        <span class="badge text-bg-secondary">{{ table.rows|length }} en esta página</span>
+      </div>
+      <div class="table-responsive">
+        {% render_table table %}
+      </div>
+    </section>
+  </main>
+{% endblock content %}

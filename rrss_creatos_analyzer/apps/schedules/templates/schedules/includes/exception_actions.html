@@ -1,0 +1,16 @@
+<div class="btn-group btn-group-sm" role="group" aria-label="Acciones">
+  <a href="{% url 'schedules:exception_detail' record.pk %}"
+     class="btn btn-outline-secondary">Ver</a>
+  <a href="{% url 'schedules:exception_update' record.pk %}"
+     class="btn btn-outline-primary">Editar</a>
+  {% if not record.is_approved %}
+  <form method="post" action="{% url 'schedules:exception_approve' record.pk %}" class="d-inline">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-outline-success" title="Aprobar Excepción">
+      Aprobar
+    </button>
+  </form>
+  {% endif %}
+  <a href="{% url 'schedules:exception_delete' record.pk %}"
+     class="btn btn-outline-danger">Eliminar</a>
+</div>
