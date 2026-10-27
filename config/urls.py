@@ -43,6 +43,10 @@ urlpatterns = [
         include("rrss_creatos_analyzer.apps.contracts.urls", namespace="contracts"),
     ),
     path(
+        "schedules/",
+        include("rrss_creatos_analyzer.apps.schedules.urls", namespace="schedules"),
+    ),
+    path(
         "streams/",
         include("rrss_creatos_analyzer.apps.streams.urls", namespace="streams"),
     ),

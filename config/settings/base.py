@@ -134,6 +134,7 @@ LOCAL_APPS = [
     "rrss_creatos_analyzer.apps.members",
     "rrss_creatos_analyzer.apps.creators",
     "rrss_creatos_analyzer.apps.contracts",
+    "rrss_creatos_analyzer.apps.schedules",
     "rrss_creatos_analyzer.apps.imports",
     "rrss_creatos_analyzer.apps.exports",
     "rrss_creatos_analyzer.apps.streams",
