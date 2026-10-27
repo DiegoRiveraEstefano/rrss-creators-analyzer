@@ -10,15 +10,15 @@ ENV PYTHONUNBUFFERED=1 \
     UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
     PATH="/app/.venv/bin:$PATH" \
-    DJANGO_SETTINGS_MODULE=config.settings.production \
-    SQLITE_DB_PATH=/app/data/db.sqlite3 \
-    DISKCACHE_DIR=/app/data/cache/diskcache
+    DJANGO_SETTINGS_MODULE=config.settings.production
 
 WORKDIR /app
 
 # Install runtime system packages and build tools
 RUN apt-get update && apt-get install --no-install-recommends -y \
     build-essential \
+    libpq-dev \
+    libpq5 \
     sqlite3 \
     libsqlite3-0 \
     curl \

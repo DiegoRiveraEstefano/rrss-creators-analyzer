@@ -1,4 +1,36 @@
 services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: rrss_creators_analyzer_postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-rrss_creatos_analyzer}
+      - POSTGRES_USER=${POSTGRES_USER:-debug}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-debug}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-debug} -d ${POSTGRES_DB:-rrss_creatos_analyzer}"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: rrss_creators_analyzer_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
   web:
     build:
       context: .
@@ -14,14 +46,14 @@ services:
       - DJANGO_ALLOWED_HOSTS=${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,0.0.0.0}
       - DJANGO_ADMIN_URL=admin/
       - DJANGO_SECURE_SSL_REDIRECT=False
-      - SQLITE_DB_PATH=/app/data/db.sqlite3
-      - DISKCACHE_DIR=/app/data/cache/diskcache
+      - DATABASE_URL=postgres://${POSTGRES_USER:-debug}:${POSTGRES_PASSWORD:-debug}@postgres:5432/${POSTGRES_DB:-rrss_creatos_analyzer}
       - REDIS_URL=redis://redis:6379/0
       - WEB_CONCURRENCY=3
     volumes:
-      - sqlite_data:/app/data
       - media_data:/app/rrss_creatos_analyzer/media
     depends_on:
+      postgres:
+        condition: service_healthy
       redis:
         condition: service_healthy
 
@@ -37,15 +69,15 @@ services:
       - DJANGO_SETTINGS_MODULE=config.settings.production
       - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY:-o0leIAkogjYB3XEZYQH5zMsgpZSjdK2iukGFtId7hN9hVL9ejkIDfm3FWE1NbPr4}
       - DJANGO_ADMIN_URL=admin/
-      - SQLITE_DB_PATH=/app/data/db.sqlite3
-      - DISKCACHE_DIR=/app/data/cache/diskcache
+      - DATABASE_URL=postgres://${POSTGRES_USER:-debug}:${POSTGRES_PASSWORD:-debug}@postgres:5432/${POSTGRES_DB:-rrss_creatos_analyzer}
       - REDIS_URL=redis://redis:6379/0
       - CELERY_WORKER_CONCURRENCY=2
       - CELERY_LOGLEVEL=INFO
     volumes:
-      - sqlite_data:/app/data
       - media_data:/app/rrss_creatos_analyzer/media
     depends_on:
+      postgres:
+        condition: service_healthy
       redis:
         condition: service_healthy
       web:
@@ -63,34 +95,20 @@ services:
       - DJANGO_SETTINGS_MODULE=config.settings.production
       - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY:-o0leIAkogjYB3XEZYQH5zMsgpZSjdK2iukGFtId7hN9hVL9ejkIDfm3FWE1NbPr4}
       - DJANGO_ADMIN_URL=admin/
-      - SQLITE_DB_PATH=/app/data/db.sqlite3
-      - DISKCACHE_DIR=/app/data/cache/diskcache
+      - DATABASE_URL=postgres://${POSTGRES_USER:-debug}:${POSTGRES_PASSWORD:-debug}@postgres:5432/${POSTGRES_DB:-rrss_creatos_analyzer}
       - REDIS_URL=redis://redis:6379/0
       - CELERY_LOGLEVEL=INFO
     volumes:
-      - sqlite_data:/app/data
       - media_data:/app/rrss_creatos_analyzer/media
     depends_on:
+      postgres:
+        condition: service_healthy
       redis:
         condition: service_healthy
       web:
         condition: service_started
 
-  redis:
-    image: redis:7-alpine
-    container_name: rrss_creators_analyzer_redis
-    restart: unless-stopped
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 5
-
 volumes:
-  sqlite_data:
-  media_data:
+  postgres_data:
   redis_data:
+  media_data:
