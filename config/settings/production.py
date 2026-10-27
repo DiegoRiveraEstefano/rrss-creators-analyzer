@@ -14,7 +14,39 @@ ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=["example.com"])
 
 # DATABASES
 # ------------------------------------------------------------------------------
+# https://docs.djangoproject.com/en/dev/ref/settings/#databases
+if "DATABASE_URL" in env:
+    DATABASES["default"] = env.db("DATABASE_URL")
+elif env.str("POSTGRES_HOST", default=None):
+    postgres_user = env.str("POSTGRES_USER", default="debug")
+    postgres_password = env.str("POSTGRES_PASSWORD", default="debug")
+    postgres_host = env.str("POSTGRES_HOST", default="postgres")
+    postgres_port = env.int("POSTGRES_PORT", default=5432)
+    postgres_db = env.str("POSTGRES_DB", default="rrss_creatos_analyzer")
+    DATABASES["default"] = env.db_url_config(
+        f"postgres://{postgres_user}:{postgres_password}@{postgres_host}:{postgres_port}/{postgres_db}",
+    )
+else:
+    DATABASES["default"] = env.db("DATABASE_URL")
+
+DATABASES["default"]["ATOMIC_REQUESTS"] = True
 DATABASES["default"]["CONN_MAX_AGE"] = env.int("CONN_MAX_AGE", default=60)
+
+# CACHES
+# ------------------------------------------------------------------------------
+# https://docs.djangoproject.com/en/dev/ref/settings/#caches
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": env("REDIS_URL", default="redis://redis:6379/0"),
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+            # Mimicking memcached behavior.
+            # https://github.com/jazzband/django-redis#memcached-exceptions-behavior
+            "IGNORE_EXCEPTIONS": True,
+        },
+    },
+}
 
 # SECURITY
 # ------------------------------------------------------------------------------

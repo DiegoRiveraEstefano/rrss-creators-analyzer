@@ -274,3 +274,9 @@ rrss_creatos_analyzer/media/
 .pytest_cache/
 !rrss_creatos_analyzer/apps/logs
 db.sqlite3
+
+.env
+.env.*
+!.envs/
+skills/
+
