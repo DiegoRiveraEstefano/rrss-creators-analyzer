@@ -32,6 +32,8 @@ En todo archivo `models.py`, las clases de modelo deben respetar el siguiente or
 - **Modelos**: Singular en `PascalCase` (`Creator`, `Channel`, `StreamingSession`, `Video`, `VideoPublication`, `VideoRelation`, `ChannelAlert`, `ImportBatch`).
 - **Tablas (`django-tables2`)**: `<ModelName>Table` (ej. `CreatorTable`, `StreamingSessionTable`, `VideoPublicationTable`).
 - **Filtros (`django-filter`)**: `<ModelName>Filter` (ej. `CreatorFilter`, `StreamingSessionFilter`).
+- **Asistentes Multi-Paso (`django-formtools`)**: `<Flow>WizardView` (ej. `CreatorOnboardingWizardView`, `CampaignSetupWizardView`, `PayoutApprovalWizardView`).
+- **Formularios de Paso en Asistentes**: `<Flow>Step<Name>Form` o `<Flow><Name>StepForm` (ej. `CreatorProfileStepForm`, `CreatorChannelsStepForm`, `CreatorContractStepForm`).
 - **Servicios**: `<Domain>Service` con verbos imperativos claros en `snake_case` (`create_creator`, `record_session`, `publish_video`, `resolve_alert`).
 - **Selectores**: `<Domain>Selector` con prefijos de consulta (`get_by_id`, `list_active_creators`, `get_monthly_revenue_summary`, `get_creator_rankings`).
 
@@ -48,9 +50,9 @@ Todas las plantillas en `rrss_creatos_analyzer/templates/` se validan y formatea
 ### 2.2 Uso Estrictamente Semántico de HTML5
 - **Prohibido el "div-soup"**: No utilizar `<div>` genéricos cuando exista un elemento semántico apropiado en HTML5:
   - `<header>`: Encabezado global o cabecera de una sección/página (título, breadcrumbs y acciones principales).
-  - `<nav aria-label="...">`: Navegación lateral (sidebar), barra superior, pestañas de plataforma y paginación de tablas.
+  - `<nav aria-label="...">`: Navegación lateral (sidebar), barra superior, pestañas de plataforma, progreso de asistentes y paginación de tablas.
   - `<main id="main-content">`: Contenedor único del contenido principal de la vista.
-  - `<section aria-labelledby="...">`: Agrupación temática (ej. sección de KPIs financieros, sección de tabla de sesiones, sección de alertas activas).
+  - `<section aria-labelledby="...">`: Agrupación temática (ej. sección de KPIs financieros, sección de tabla de sesiones, tarjeta del paso del asistente).
   - `<article>`: Unidad independiente de contenido repetible o autocontenido (ej. tarjeta de perfil de un creador, tarjeta de alerta crítica, detalle de un video).
   - `<aside>`: Paneles laterales de filtros (`django-filter`), resúmenes secundarios o metadatos del canal.
   - `<figure>` y `<figcaption>`: Contenedores para gráficos analíticos, miniaturas de videos (`thumbnail_url`) y avatares con leyenda.
@@ -117,6 +119,15 @@ Todas las plantillas en `rrss_creatos_analyzer/templates/` se validan y formatea
 {% endblock content %}
 ```
 
+### 2.4 Integración de Asistentes en Múltiples Pasos (`django-formtools`)
+- Las plantillas de asistentes deben estructurarse con una barra de progreso semántica dentro de `<nav aria-label="Progreso del asistente">`.
+- Incluir de forma obligatoria `{{ wizard.management_form }}` inmediatamente después de la etiqueta `<form>` para mantener la integridad del estado de sesión.
+- Renderizar el formulario del paso activo utilizando `{% crispy wizard.form %}`.
+- La botonera de navegación debe incluir:
+  - Botón de cancelación (`<a>`) a la izquierda.
+  - Botón de retroceso opcional si `wizard.steps.prev` existe (`<button name="wizard_goto_step" type="submit" value="{{ wizard.steps.prev }}">`).
+  - Botón de avance o finalización primario (`<button type="submit">`).
+
 ---
 
 ## 3. Estándares de CSS y Bootstrap 5
@@ -127,7 +138,7 @@ Todas las plantillas en `rrss_creatos_analyzer/templates/` se validan y formatea
 2. **Variables CSS (Custom Properties) en `project.css`**:
    - Cualquier personalización visual (como los colores de marca de `Twitch`, `YouTube`, `Kick`, `TikTok` o ajustes de tema claro/oscuro con `data-bs-theme`) debe definirse mediante variables CSS en `:root` dentro de [`rrss_creatos_analyzer/static/css/project.css`](file:///home/diego/Proyectos/rrss-creators-analyzer/rrss_creatos_analyzer/static/css/project.css).
 3. **Cero Estilos Inline**:
-   - Prohibido el uso del atributo `style="..."` en plantillas HTML, salvo cuando se trate de variables CSS dinámicas calculadas (ej. porcentajes en barras de progreso `style="--progress-width: 75%;"`).
+   - Prohibido el uso del atributo `style="..."` en plantillas HTML, salvo cuando se trate de variables CSS dinámicas calculadas (ej. porcentajes en barras de progreso `style="--progress-width: 75%;"` o `style="width: 50%;"` en `.progress-bar`).
 
 ---
 

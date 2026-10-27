@@ -7,15 +7,15 @@ Este documento establece los lineamientos técnicos obligatorios para el desarro
 ## 1. Principios Arquitectónicos y Monolito Modular
 
 ### 1.1 Reglas de Modularidad y Capas
-1. **Límite de 400 líneas por archivo**: Ningún archivo `.py` debe superar las 400 líneas. Si un módulo crece más allá de este límite, debe dividirse en un paquete (`services/`, `selectors/`, `views/`, `tables/`).
+1. **Límite de 400 líneas por archivo**: Ningún archivo `.py` debe superar las 400 líneas. Si un módulo crece más allá de este límite, debe dividirse en un paquete (`services/`, `selectors/`, `views/`, `tables/`, `wizards/`).
 2. **Separación estricta de responsabilidades**:
    - `models.py`: Definición de campos, `TextChoices`, metadatos, índices, `CheckConstraint`, `UniqueConstraint` y `GeneratedField`. **Cero lógica de negocio o llamadas externas**.
    - `selectors.py`: Toda la lógica de lectura, filtrado por permisos de rol (`creator` vs `manager`/`analyst`), optimización `select_related`/`prefetch_related`, anotaciones (`annotate`) y consultas cacheadas en `DiskCache`. **Cero mutaciones**.
    - `services.py`: Toda la lógica de escritura/mutación, validaciones de reglas de negocio, bloques `@transaction.atomic`, invalidación de `DiskCache` y registro de eventos/auditoría.
    - `tables.py`: Definición declarativa de tablas con **`django-tables2`**.
    - `filters.py`: Definición declarativa de filtros de búsqueda con **`django-filter`**.
-   - `forms.py`: Formularios de Django con layouts de **`django-crispy-forms`** (`crispy-bootstrap5`) y widgets de autocompletado (`django-autocomplete-light`).
-   - `views.py`: Controladores HTTP delgados (Class-Based Views). Desempaquetan la petición, llaman a un `Selector` o `Service`, e integran `SingleTableMixin` / `FilterView`.
+   - `forms.py` / `wizards.py`: Formularios de Django con layouts de **`django-crispy-forms`** (`crispy-bootstrap5`), selectores con `django-autocomplete-light` y pasos de asistentes para **`django-formtools`**.
+   - `views.py` (o `views/wizards.py`): Controladores HTTP delgados (Class-Based Views y `SessionWizardView`). Desempaquetan la petición, llaman a un `Selector` o `Service`, e integran `SingleTableMixin` / `FilterView`.
 
 ### 1.2 Arquitectura Single-Tenant (Sin `tenant_id`)
 - El sistema pertenece a **una única compañía**.
@@ -96,6 +96,68 @@ class StreamingSessionFilter(django_filters.FilterSet):
 - **Estructura compleja y layouts**: Usar `FormHelper` y `Layout` (`Row`, `Column`, `Fieldset`, `Submit`, `InputGroup`) de `crispy_forms` con el paquete `crispy-bootstrap5`.
 - **Ajustes rápidos en plantillas HTML**: Cuando se rendericen filtros compactos, barras de búsqueda o controles puntuales en un template, usar **`django-widget-tweaks`** (`{% load widget_tweaks %}` y `{% render_field form.field class+="form-control form-control-sm" placeholder="Buscar..." %}`).
 - **Selectores relacionales grandes**: Para seleccionar `Creator`, `Channel`, `Video` o `tags` en formularios, emplear `django-autocomplete-light` (`dal.autocomplete`).
+
+### 2.4 Formularios en Múltiples Pasos con `django-formtools` (`SessionWizardView`)
+- **Casos de uso obligatorios**: Flujos guiados de creación y configuración secuencial donde presentar todos los campos en una sola página resulta abrumador o donde los pasos posteriores dependen de entidades/decisiones del paso previo:
+  1. **Onboarding Integral de Creadores (`creators` / `contracts`)**: Paso 1 (Datos de identidad y perfil), Paso 2 (Canales en Twitch/YouTube/Kick/TikTok), Paso 3 (Contrato inicial, metas mensuales y reparto de ingresos).
+  2. **Configuración de Campañas de Patrocinio (`campaigns`)**: Paso 1 (Detalles de marca y presupuesto), Paso 2 (Selección de creadores y canales convocados), Paso 3 (Asignación de entregables y fechas límite).
+  3. **Cierre de Liquidaciones Financieras (`payouts`)**: Paso 1 (Selección de periodo y creadores), Paso 2 (Revisión de métricas de ingresos e imputación de costos), Paso 3 (Aprobación y liquidación contable).
+  4. **Asistente de Ingesta Masiva Asistida (`imports`)**: Paso 1 (Carga de archivo CSV/XLSX), Paso 2 (Mapeo interactivo de columnas a campos del modelo), Paso 3 (Previsualización de filas válidas/inválidas y confirmación de commit).
+- **Reglas de Implementación**:
+  - Utilizar **`formtools.wizard.views.SessionWizardView`** para almacenar el estado intermedio de manera transparente y segura en la sesión del servidor (evitar diccionarios temporales ad-hoc en sesión o cookies del lado del cliente).
+  - Cada paso debe tener su clase de formulario dedicada en `forms.py` (o `wizards.py`) con sus respectivas validaciones aisladas (`clean()`) y layout con `crispy-bootstrap5`.
+  - En la plantilla HTML: incluir obligatoriamente `{{ wizard.management_form }}`, una barra de progreso semántica (`<nav aria-label="Progreso del asistente">` con `.progress`), el formulario actual renderizado vía `{% crispy wizard.form %}` y controles de navegación hacia atrás con `<button name="wizard_goto_step" type="submit" value="{{ wizard.steps.prev }}">`.
+  - **Zero lógica de negocio en la vista**: En el método `done(self, form_list, **kwargs)`, la vista únicamente extrae los `cleaned_data` consolidados de cada paso mediante `self.get_cleaned_data_for_step(step_name)` y delega la ejecución de la transacción completa a un único método de la capa `Service` (`@transaction.atomic`).
+
+```python
+from django.contrib import messages
+from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
+from django.http import HttpResponse
+from django.shortcuts import redirect
+from django.urls import reverse_lazy
+from formtools.wizard.views import SessionWizardView
+
+from .forms import (
+    CreatorProfileStepForm,
+    CreatorChannelsStepForm,
+    CreatorContractStepForm,
+)
+from .services import CreatorOnboardingService
+
+FORMS = [
+    ("profile", CreatorProfileStepForm),
+    ("channels", CreatorChannelsStepForm),
+    ("contract", CreatorContractStepForm),
+]
+
+
+class CreatorOnboardingWizardView(
+    LoginRequiredMixin,
+    PermissionRequiredMixin,
+    SessionWizardView,
+):
+    form_list = FORMS
+    permission_required = "creators.add_creator"
+    template_name = "creators/wizards/onboarding_wizard.html"
+
+    def done(self, form_list, **kwargs) -> HttpResponse:
+        profile_data = self.get_cleaned_data_for_step("profile") or {}
+        channels_data = self.get_cleaned_data_for_step("channels") or {}
+        contract_data = self.get_cleaned_data_for_step("contract") or {}
+
+        creator = CreatorOnboardingService.onboard_creator(
+            user=self.request.user,
+            profile_payload=profile_data,
+            channels_payload=channels_data.get("channels", []),
+            contract_payload=contract_data,
+        )
+
+        messages.success(
+            self.request,
+            f"Creador '{creator.display_name}' incorporado exitosamente.",
+        )
+        return redirect(reverse_lazy("creators:detail", kwargs={"pk": creator.pk}))
+```
 
 ---
 
@@ -195,7 +257,7 @@ class CreatorAnalyticsSelector:
 1. **Clases Stateless con `@classmethod`**:
    - Todos los servicios se implementan como clases sin estado con métodos `@classmethod`. No instanciar servicios (`Service()`).
 2. **Desacoplamiento de HTTP**:
-   - Un servicio **nunca** recibe `HttpRequest`, `HttpResponse` ni instancias de `Form`. Recibe tipos primitivos (`int`, `str`, `Decimal`, `datetime`), dataclasses o instancias de modelos.
+   - Un servicio **nunca** recibe `HttpRequest`, `HttpResponse`, instancias de `Form` ni `WizardView`. Recibe tipos primitivos (`int`, `str`, `Decimal`, `datetime`), dataclasses o instancias de modelos.
 3. **Atomicidad y Compatibilidad con SQLite**:
    - Decorar todos los métodos de escritura con `@transaction.atomic`.
    - En SQLite, mantener las transacciones lo más cortas y rápidas posible (no hacer peticiones HTTP externas ni procesamientos de archivos lentos dentro del bloque `transaction.atomic` antes de escribir).
@@ -297,8 +359,8 @@ class StreamingSessionService:
 
 ## 7. Reglas de Vistas (`views.py`)
 
-- Utilizar **Class-Based Views (CBVs)** nativas de Django (`ListView`, `DetailView`, `CreateView`, `UpdateView`, `DeleteView`, `TemplateView`) combinadas con `LoginRequiredMixin`, mixins de permisos por rol (`PermissionRequiredMixin` / `RoleRequiredMixin`), `SingleTableMixin` (`django-tables2`) y `FilterView` (`django-filter`).
-- Ninguna vista debe realizar llamadas `Model.objects.create(...)` o `form.save()` con lógica de negocio; en `form_valid()` se debe delegar siempre al método correspondiente de la capa `Service`.
+- Utilizar **Class-Based Views (CBVs)** nativas de Django (`ListView`, `DetailView`, `CreateView`, `UpdateView`, `DeleteView`, `TemplateView`) y **`SessionWizardView`** para flujos secuenciales multi-paso, combinadas con `LoginRequiredMixin`, mixins de permisos por rol (`PermissionRequiredMixin` / `RoleRequiredMixin`), `SingleTableMixin` (`django-tables2`) y `FilterView` (`django-filter`).
+- Ninguna vista debe realizar llamadas `Model.objects.create(...)` o `form.save()` con lógica de negocio; en `form_valid()` o en el método `done()` del wizard se debe delegar siempre al método correspondiente de la capa `Service`.
 
 ---
 
@@ -336,3 +398,6 @@ class StreamingSessionService:
      1. Caso exitoso (*happy path*) y persistencia correcta.
      2. Violación de cláusulas de guarda (`pytest.raises(BusinessLogicError)`).
      3. Invalidación o actualización efectiva de las claves en `DiskCache`.
+6. **Pruebas de Asistentes en Múltiples Pasos (`django-formtools`)**:
+   - Testear individualmente la validación de cada formulario de paso (`test_forms.py`).
+   - Testear la navegación del wizard con el cliente de pruebas de Django: simulación de envío de pasos con `management_form` (`<wizard_name>-current_step`), navegación hacia atrás (`wizard_goto_step`), persistencia de sesión entre pasos y verificación de que el método `done()` delega los datos al `Service` esperado.

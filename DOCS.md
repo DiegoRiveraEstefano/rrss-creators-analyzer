@@ -23,7 +23,7 @@ Este documento describe en detalle la arquitectura, el modelo de dominio, la tra
 4. **Caché con DiskCache y Memoria**:
    - En lugar de requerir servidores externos de caché o vistas materializadas de PostgreSQL, el sistema emplea **`diskcache.DjangoCache`** (persistente en disco y seguro entre procesos) junto con caché en memoria para almacenar métricas precalculadas, rankings y resúmenes financieros.
 5. **Maximización del Ecosistema Django**:
-   - Uso intensivo del ORM de Django (`annotate`, `aggregate`, `Window`, `F`, `Q`, `Case/When`, `GeneratedField`), Class-Based Views (CBVs), `PermissionRequiredMixin`, `django-tables2`, `django-filter`, `django-crispy-forms` y `django-widget-tweaks`.
+   - Uso intensivo del ORM de Django (`annotate`, `aggregate`, `Window`, `F`, `Q`, `Case/When`, `GeneratedField`), Class-Based Views (CBVs), `PermissionRequiredMixin`, `django-tables2`, `django-filter`, `django-crispy-forms`, `django-widget-tweaks` y **`django-formtools`** (para flujos asistidos y formularios en múltiples pasos / wizards).
 
 ---
 
@@ -126,6 +126,29 @@ erDiagram
    - `ChannelAlert` (`alerts_channel_alert`): Strikes DMCA, violaciones TOS, desmonetizaciones, caídas de CCV y cumplimiento de cuotas.
 6. **App `imports`**:
    - `ImportBatch` (`imports_import_batch`): Auditoría de importaciones masivas con `django-import-export`.
-7. **Apps Futuras (`campaigns` y `payouts`)**:
+7. **Apps de Finanzas y Campañas (`campaigns` y `payouts`)**:
    - `SponsorCampaign` y `CampaignDeliverable`: Campañas con marcas y entregables vinculados a streams o publicaciones.
    - `CreatorPayout`: Liquidaciones financieras mensuales por creador.
+
+---
+
+## 5. Estrategia de Formularios en Múltiples Pasos (`django-formtools`)
+
+Para operaciones complejas que requieren capturar información relacionada en etapas secuenciales, la plataforma utiliza **`django-formtools`** (`SessionWizardView`). Esto evita formularios monolíticos difíciles de mantener y garantiza la integridad de los datos en la sesión antes de persistir:
+
+1. **Alta Guiada e Incorporación de Creadores (`creators` / `contracts`)**:
+   - *Paso 1 (Perfil de Talento)*: Datos personales, nombre público, handle, tier y plataforma primaria.
+   - *Paso 2 (Canales y Conectores)*: Configuración de canales en Twitch, YouTube, Kick y TikTok.
+   - *Paso 3 (Contrato Inicial y Split de Ingresos)*: Definición de retainers fijos, porcentajes de reparto por publicidad, suscripciones y patrocinio, junto con metas mensuales de horas de streaming y publicaciones.
+2. **Creación y Asignación de Campañas de Patrocinio (`campaigns`)**:
+   - *Paso 1 (Datos de Marca y Campaña)*: Nombre del patrocinador, presupuesto total, fechas de vigencia y directrices de marca.
+   - *Paso 2 (Selección del Roster)*: Convocatoria de creadores participantes según nicho y audiencia.
+   - *Paso 3 (Asignación de Entregables)*: Distribución de sesiones patrocinadas, menciones en vivo, videos dedicados y publicaciones en redes con plazos de entrega.
+3. **Cierre de Liquidaciones Financieras Mensuales (`payouts`)**:
+   - *Paso 1 (Selección de Periodo y Filtros)*: Mes fiscal y alcance de creadores a liquidar.
+   - *Paso 2 (Auditoría de Ingresos y Costos)*: Consolidación de ingresos por streaming, vistas de video y marcas, descontando retenciones, costos de edición y comisiones de agencia.
+   - *Paso 3 (Aprobación y Cierre)*: Aprobación por la dirección financiera, generación de extractos y marcado de transacciones como liquidadas.
+4. **Asistente de Ingesta Masiva Asistida (`imports`)**:
+   - *Paso 1 (Carga de Archivo)*: Subida del archivo CSV/XLSX y selección de la entidad de destino (`StreamingSession` o `VideoPublication`).
+   - *Paso 2 (Mapeo de Columnas)*: Asociación asistida de encabezados externos a los campos del modelo.
+   - *Paso 3 (Validación y Commit)*: Simulación previa (dry-run) reportando filas con errores de validación antes de confirmar la inserción definitiva en la base de datos.

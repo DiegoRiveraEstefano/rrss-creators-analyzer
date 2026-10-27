@@ -141,6 +141,20 @@ Cuando se requiera interacción dinámica en el cliente, encapsularla en Web Com
 - `<rrss-video-roi-preview>`: Componente en el formulario de publicaciones que calcula en vivo el **Beneficio Neto**, **ROI (%)** y **RPM estimado** a medida que el analista ingresa costos de producción, vistas e ingresos estimados.
 - `<rrss-live-activity-feed>`: Timeline unificado (equivalente a `v_recent_channel_activity`) con filtro rápido por pestañas (`Todos`, `Streams`, `Videos`, `Alertas`) sin recargar la página.
 
+### 4.6 Asistentes y Formularios Multi-Paso (`django-formtools` / Steppers)
+Para procesos de registro o configuración extensos (onboarding de talentos, contratos, campañas o liquidaciones financieras):
+- **Contenedor enfocado**: Centrar el asistente en un contenedor optimizado (`col-12 col-lg-8 mx-auto`) para reducir dispersión y fatiga de usuario.
+- **Barra de Progreso y Stepper Visual**:
+  - Encabezado con número y nombre de paso: `<p class="text-body-secondary mb-2">Paso X de Y: <span class="fw-semibold">Título del Paso</span></p>`.
+  - Componente `.progress` con altura compacta (`style="height: 6px;"` o `8px`) y valor `aria-valuenow` dinámico según el paso activo (`wizard.steps.step1`).
+- **Botonera de Navegación Consistente**:
+  - Alineación horizontal con `d-flex justify-content-between align-items-center pt-3 border-top`.
+  - Enlace secundario "Cancelar" a la izquierda.
+  - Botón "Paso anterior" (`btn-secondary` o `btn-outline-secondary`) si existe paso previo (`wizard.steps.prev`).
+  - Botón primario de avance: "Siguiente paso »" o "Finalizar y Guardar" (`btn-primary`) en el último paso.
+- **Resumen Previo a la Confirmación**:
+  - En flujos críticos (como liquidaciones contables o términos contractuales), el paso final debe presentar un resumen claro de los datos capturados en los pasos anteriores antes de la confirmación final.
+
 ---
 
 ## 5. Accesibilidad (WCAG 2.1 Nivel AA)

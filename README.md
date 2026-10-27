@@ -30,6 +30,9 @@
 - **Directorio de Creadores y Canales (`creators`)**:
   - Gestión centralizada del roster de creadores (`active`, `inactive`, `suspended`) y vinculación opcional con cuentas de usuario del sistema.
   - Seguimiento multi-plataforma (`Twitch`, `YouTube`, `Kick`, `TikTok`) con métricas de seguidores, suscriptores y estado en vivo.
+- **Asistentes en Múltiples Pasos (`django-formtools`)**:
+  - Incorporación guiada de talentos (`creators` / `contracts`): alta de perfil, vinculación de canales por plataforma y configuración de términos contractuales con reparto de ingresos (*revenue split*).
+  - Flujos secuenciales para la configuración de campañas de patrocinio (`campaigns`), cierre de liquidaciones contables mensuales (`payouts`) y asistentes de ingesta masiva con mapeo interactivo de columnas (`imports`).
 - **Analítica de Sesiones de Streaming (`streams`)**:
   - Registro detallado de transmisiones en vivo: duración, horas transmitidas, media de espectadores concurrentes (`avg_ccv`), pico de espectadores (`peak_viewers`), interacción en chat y nuevos seguidores.
   - Desglose financiero por sesión: ingresos por publicidad (`ad_revenue`), suscripciones (`subs_revenue`), donaciones (`donations_revenue`), ingresos totales e ingresos por hora (`earnings_per_hour`).
@@ -61,7 +64,7 @@
 ### Librerías Core del Ecosistema Django (Uso Prioritario)
 - **Tablas de Datos**: `django-tables2` para listados paginados, ordenamiento multi-columna y exportación.
 - **Filtrado**: `django-filter` para búsquedas declarativas y filtros combinados en vistas y APIs.
-- **Formularios**: `django-crispy-forms` + `crispy-bootstrap5` para layouts estructurados y `django-widget-tweaks` para ajustes granulares en plantillas HTML.
+- **Formularios y Asistentes Multi-Paso**: `django-crispy-forms` + `crispy-bootstrap5` para layouts estructurados, `django-formtools` (`SessionWizardView`) para flujos secuenciales guiados (onboarding, contratos, campañas, liquidaciones) y `django-widget-tweaks` para ajustes granulares en plantillas HTML.
 - **Autocompletado y Etiquetas**: `django-autocomplete-light` (DAL) para selectores relacionales y `django-taggit` para categorización.
 - **Importación/Exportación e Historial**: `django-import-export` y `django-simple-history`.
 
@@ -76,10 +79,10 @@
 
 Toda la normativa técnica, arquitectónica y de diseño del proyecto se encuentra documentada en los siguientes archivos en la raíz del repositorio:
 
-- [`DOCS.md`](file:///home/diego/Proyectos/rrss-creators-analyzer/DOCS.md): Documentación general de la arquitectura, modelo de dominio (migración desde [`old-migrations/`](file:///home/diego/Proyectos/rrss-creators-analyzer/old-migrations) a modelos de Django), configuración de SQLite + DiskCache y flujos de negocio.
-- [`GUIDELINES.md`](file:///home/diego/Proyectos/rrss-creators-analyzer/GUIDELINES.md): Reglas arquitectónicas del proyecto (Capas `Models -> Selectors -> Services -> Views`, uso obligatorio de `django-tables2`, `django-filter`, `django-crispy-forms` y `django-widget-tweaks`, política estricta de Signals y TDD).
-- [`STYLE_GUIDE.md`](file:///home/diego/Proyectos/rrss-creators-analyzer/STYLE_GUIDE.md): Guía de estilo de código para Python (Ruff, Mypy), plantillas Django (`djLint`), HTML5 semántico, Bootstrap 5, JS Vanilla y Web Components.
-- [`DESING.md`](file:///home/diego/Proyectos/rrss-creators-analyzer/DESING.md): Guía de diseño UI/UX, paleta de colores por plataforma (`Twitch`, `YouTube`, `Kick`, `TikTok`), componentes de dashboards, tablas analíticas y accesibilidad.
+- [`DOCS.md`](file:///home/diego/Proyectos/rrss-creators-analyzer/DOCS.md): Documentación general de la arquitectura, modelo de dominio (migración desde [`old-migrations/`](file:///home/diego/Proyectos/rrss-creators-analyzer/old-migrations) a modelos de Django), asistentes multi-paso (`django-formtools`), configuración de SQLite + DiskCache y flujos de negocio.
+- [`GUIDELINES.md`](file:///home/diego/Proyectos/rrss-creators-analyzer/GUIDELINES.md): Reglas arquitectónicas del proyecto (Capas `Models -> Selectors -> Services -> Views`, uso obligatorio de `django-tables2`, `django-filter`, `django-crispy-forms`, `django-formtools` y `django-widget-tweaks`, política estricta de Signals y TDD).
+- [`STYLE_GUIDE.md`](file:///home/diego/Proyectos/rrss-creators-analyzer/STYLE_GUIDE.md): Guía de estilo de código para Python (Ruff, Mypy), plantillas Django (`djLint`), HTML5 semántico, Bootstrap 5, asistentes multi-paso, JS Vanilla y Web Components.
+- [`DESING.md`](file:///home/diego/Proyectos/rrss-creators-analyzer/DESING.md): Guía de diseño UI/UX, paleta de colores por plataforma (`Twitch`, `YouTube`, `Kick`, `TikTok`), componentes de dashboards, steppers/asistentes multi-paso, tablas analíticas y accesibilidad.
 - [`SECURITY.md`](file:///home/diego/Proyectos/rrss-creators-analyzer/SECURITY.md): Política de seguridad, matriz de permisos por rol (RBAC en Django), protección de datos financieros, seguridad en SQLite/DiskCache y reporte de vulnerabilidades.
 - [`CONTRIBUTING.md`](file:///home/diego/Proyectos/rrss-creators-analyzer/CONTRIBUTING.md): Flujo de trabajo con Git, estándares de Conventional Commits, requisitos de pruebas con `pytest` y lista de verificación para Pull Requests.
 - [`AGENTS.md`](file:///home/diego/Proyectos/rrss-creators-analyzer/AGENTS.md): Instrucciones operativas y contexto rápido para agentes de IA y asistentes de código que trabajen en este repositorio.
