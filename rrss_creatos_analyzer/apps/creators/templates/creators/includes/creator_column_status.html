@@ -1,13 +1,15 @@
 {% if record.status == 'active' %}
-  <span class="badge text-bg-success">Activo</span>
-{% elif record.status == 'paused' %}
-  <span class="badge text-bg-warning">En Pausa</span>
-{% elif record.status == 'probation' %}
-  <span class="badge text-bg-info">En Prueba</span>
+  <span class="badge text-bg-success"><i class="bi bi-check-circle-fill me-1"></i>Activo</span>
+{% elif record.status == 'onboarding' %}
+  <span class="badge text-bg-info"><i class="bi bi-clock-history me-1"></i>Onboarding</span>
+{% elif record.status == 'on_leave' or record.status == 'paused' %}
+  <span class="badge text-bg-warning"><i class="bi bi-pause-circle-fill me-1"></i>En Pausa</span>
+{% elif record.status == 'suspended' %}
+  <span class="badge text-bg-danger"><i class="bi bi-slash-circle-fill me-1"></i>Suspendido</span>
 {% elif record.status == 'inactive' %}
   <span class="badge text-bg-secondary">Inactivo</span>
-{% elif record.status == 'banned' %}
-  <span class="badge text-bg-danger">Baneado</span>
+{% elif record.status == 'terminated' %}
+  <span class="badge text-bg-dark">Finalizado</span>
 {% else %}
   <span class="badge text-bg-light border">{{ record.get_status_display }}</span>
 {% endif %}

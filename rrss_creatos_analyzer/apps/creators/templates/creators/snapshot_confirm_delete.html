@@ -1,1 +1,47 @@
-{% extends "core/crud_confirm_delete.html" %}
+{% extends "base.html" %}
+
+{% block title %}
+  Eliminar Snapshot {{ object.snapshot_date }} | RRSS Creators Analyzer
+{% endblock title %}
+
+{% block content %}
+<main id="main-content" class="container py-4">
+  <nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{% url 'creators:creator_list' %}" class="text-decoration-none">Creadores</a></li>
+      <li class="breadcrumb-item"><a href="{% url 'creators:creator_detail' object.channel.creator.pk %}" class="text-decoration-none">{{ object.channel.creator.display_name }}</a></li>
+      <li class="breadcrumb-item"><a href="{% url 'creators:snapshot_list' %}" class="text-decoration-none">Snapshots</a></li>
+      <li class="breadcrumb-item active" aria-current="page">Eliminar</li>
+    </ol>
+  </nav>
+
+  <div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+      <div class="card shadow border-danger border-2">
+        <div class="card-header bg-danger text-white py-3">
+          <h1 class="h5 mb-0 fw-bold">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i>Confirmar Eliminación de Snapshot
+          </h1>
+        </div>
+        <div class="card-body p-4">
+          <p class="fs-5">
+            ¿Está seguro de que desea eliminar el snapshot del <strong>{{ object.snapshot_date }}</strong> correspondiente al canal <strong>{{ object.channel }}</strong>?
+          </p>
+
+          <form method="post">
+            {% csrf_token %}
+            <div class="d-flex justify-content-end gap-2 border-top pt-3">
+              <a href="{% url 'creators:creator_detail' object.channel.creator.pk %}?tab=growth" class="btn btn-outline-secondary">
+                Cancelar
+              </a>
+              <button type="submit" class="btn btn-danger fw-semibold">
+                <i class="bi bi-trash-fill me-1"></i> Sí, Eliminar Registro
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+{% endblock content %}

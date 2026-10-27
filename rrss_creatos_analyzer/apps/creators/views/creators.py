@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.mixins import PermissionRequiredMixin
@@ -16,6 +18,8 @@ from django_tables2 import SingleTableMixin
 from rrss_creatos_analyzer.apps.core.exceptions import BusinessLogicError
 from rrss_creatos_analyzer.apps.core.mixins import CrudContextMixin
 from rrss_creatos_analyzer.apps.creators.filters import CreatorFilter
+from rrss_creatos_analyzer.apps.creators.forms import ChannelForm
+from rrss_creatos_analyzer.apps.creators.forms import ChannelSnapshotForm
 from rrss_creatos_analyzer.apps.creators.forms import CreatorForm
 from rrss_creatos_analyzer.apps.creators.forms import CreatorPersonalInfoForm
 from rrss_creatos_analyzer.apps.creators.forms import CreatorStatusChangeForm
@@ -41,7 +45,7 @@ class CreatorListView(
     template_name = "creators/creator_list.html"
     paginate_by = 25
     page_title = "Directorio de Creadores"
-    page_subtitle = "Gestión de streamers, talentos y canales de la compañía"
+    page_subtitle = "Gestión integral de streamers, talentos y canales de la agencia"
     create_url_name = "creators:creator_create"
 
     def get_queryset(self):
@@ -62,7 +66,7 @@ class CreatorDetailView(
     model = Creator
     permission_required = "creators.view_creator"
     template_name = "creators/creator_detail.html"
-    page_title = "Ficha del Creador"
+    page_title = "Ficha 360° del Creador"
     list_url_name = "creators:creator_list"
     update_url_name = "creators:creator_update"
     delete_url_name = "creators:creator_delete"
@@ -73,17 +77,22 @@ class CreatorDetailView(
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         creator = self.object
-        channels = ChannelSelector.get_for_creator(
-            creator_id=creator.id,
+
+        # Contexto analítico y operativo 360°
+        context_360 = CreatorSelector.get_360_context(
+            creator=creator,
             user=self.request.user,
         )
-        ctx["channels"] = channels
-        ctx["personal_info"] = getattr(creator, "personal_info", None)
-        ctx["status_form"] = CreatorStatusChangeForm(initial={"status": creator.status})
-        ctx["total_followers"] = sum(c.followers_count for c in channels)
-        ctx["total_subscribers"] = sum(c.subscribers_count for c in channels)
-        ctx["total_views"] = sum(c.total_views_count for c in channels)
-        ctx["live_channels"] = [c for c in channels if c.is_live]
+        ctx.update(context_360)
+
+        # Formularios rápidos para modales interactivos
+        ctx["status_form"] = CreatorStatusChangeForm(
+            initial={"status": creator.status},
+        )
+        ctx["quick_channel_form"] = ChannelForm(
+            initial={"creator": creator.pk, "is_monetized": True, "sync_enabled": True},
+        )
+        ctx["active_tab"] = self.request.GET.get("tab", "channels")
         return ctx
 
 
@@ -97,17 +106,46 @@ class CreatorCreateView(
     permission_required = "creators.add_creator"
     form_class = CreatorForm
     template_name = "creators/creator_form.html"
-    page_title = "Registrar Creador"
+    page_title = "Nuevo Creador / Onboarding de Talento"
+    page_subtitle = "Ficha de ingreso del creador a la compañía con opción de canal principal inmediato"
     list_url_name = "creators:creator_list"
 
     def get_success_url(self):
         return reverse("creators:creator_detail", kwargs={"pk": self.object.pk})
 
     def form_valid(self, form):
-        data = form.cleaned_data.copy()
-        tags = data.pop("tags", None)
-        self.object = CreatorService.save_creator(tags=tags, **data)
-        messages.success(self.request, "Creador registrado exitosamente.")
+        cleaned_data = form.cleaned_data.copy()
+
+        # Extraer datos de canal inicial si se seleccionó en el formulario
+        link_initial = cleaned_data.pop("link_initial_channel", False)
+        initial_channel_data = None
+        if link_initial and cleaned_data.get("initial_platform"):
+            initial_channel_data = {
+                "platform": cleaned_data.pop("initial_platform"),
+                "platform_channel_id": cleaned_data.pop("initial_channel_id", "")
+                or cleaned_data.get("handle", ""),
+                "channel_url": cleaned_data.pop("initial_channel_url", ""),
+                "followers_count": cleaned_data.pop("initial_followers_count", 0) or 0,
+            }
+        else:
+            cleaned_data.pop("initial_platform", None)
+            cleaned_data.pop("initial_channel_id", None)
+            cleaned_data.pop("initial_channel_url", None)
+            cleaned_data.pop("initial_followers_count", None)
+
+        try:
+            self.object = CreatorService.save_creator(
+                initial_channel_data=initial_channel_data,
+                **cleaned_data,
+            )
+        except BusinessLogicError as exc:
+            form.add_error(None, str(exc))
+            return self.form_invalid(form)
+
+        messages.success(
+            self.request,
+            f"Creador '{self.object.display_name}' dado de alta exitosamente en el roster.",
+        )
         return redirect(self.get_success_url())
 
 
@@ -122,20 +160,26 @@ class CreatorUpdateView(
     form_class = CreatorForm
     template_name = "creators/creator_form.html"
     page_title = "Editar Creador"
+    page_subtitle = "Actualización de identidad pública y configuración de talento"
     list_url_name = "creators:creator_list"
 
     def get_success_url(self):
         return reverse("creators:creator_detail", kwargs={"pk": self.object.pk})
 
     def form_valid(self, form):
-        data = form.cleaned_data.copy()
-        tags = data.pop("tags", None)
-        self.object = CreatorService.save_creator(
-            instance=self.get_object(),
-            tags=tags,
-            **data,
+        try:
+            self.object = CreatorService.save_creator(
+                instance=self.get_object(),
+                **form.cleaned_data,
+            )
+        except BusinessLogicError as exc:
+            form.add_error(None, str(exc))
+            return self.form_invalid(form)
+
+        messages.success(
+            self.request,
+            f"Creador '{self.object.display_name}' actualizado exitosamente.",
         )
-        messages.success(self.request, "Creador actualizado exitosamente.")
         return redirect(self.get_success_url())
 
 
@@ -150,10 +194,13 @@ class CreatorDeleteView(
     template_name = "creators/creator_confirm_delete.html"
     success_url = reverse_lazy("creators:creator_list")
     list_url_name = "creators:creator_list"
+    page_title = "Confirmar Baja de Creador"
 
     def form_valid(self, form):
-        CreatorService.delete_creator(instance=self.get_object())
-        messages.success(self.request, "Creador eliminado exitosamente.")
+        creator = self.get_object()
+        name = creator.display_name
+        CreatorService.delete_creator(instance=creator)
+        messages.success(self.request, f"Creador '{name}' eliminado exitosamente.")
         return redirect(self.success_url)
 
 
@@ -167,7 +214,10 @@ class CreatorPersonalInfoUpdateView(
     permission_required = "creators.change_creator"
     form_class = CreatorPersonalInfoForm
     template_name = "creators/creator_personal_info_form.html"
-    page_title = "Datos Personales y Fiscales del Creador"
+    page_title = "Expediente Confidencial y Datos Bancarios (KYC)"
+    page_subtitle = (
+        "Información fiscal y cuenta receptora para liquidaciones de ingresos"
+    )
 
     def get_object(self, queryset=None):
         creator_pk = self.kwargs.get("creator_pk")
@@ -179,9 +229,12 @@ class CreatorPersonalInfoUpdateView(
         return personal_info
 
     def get_success_url(self):
-        return reverse(
-            "creators:creator_detail",
-            kwargs={"pk": self.object.creator_id},
+        return (
+            reverse(
+                "creators:creator_detail",
+                kwargs={"pk": self.object.creator_id},
+            )
+            + "?tab=personal"
         )
 
     def form_valid(self, form):
@@ -191,14 +244,14 @@ class CreatorPersonalInfoUpdateView(
         )
         messages.success(
             self.request,
-            "Datos personales y fiscales guardados correctamente.",
+            "Datos personales, fiscales y bancarios guardados con éxito.",
         )
         return redirect(self.get_success_url())
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx["creator"] = self.object.creator
-        ctx["list_url"] = reverse(
+        ctx["cancel_url"] = reverse(
             "creators:creator_detail",
             kwargs={"pk": self.object.creator_id},
         )
@@ -224,7 +277,7 @@ class CreatorStatusChangeView(LoginRequiredMixin, PermissionRequiredMixin, View)
                 status_label = creator.get_status_display()
                 messages.success(
                     request,
-                    f"Estado de {creator.display_name} cambiado a {status_label}.",
+                    f"Estado de {creator.display_name} modificado a '{status_label}'.",
                 )
             except BusinessLogicError as exc:
                 messages.error(request, str(exc))

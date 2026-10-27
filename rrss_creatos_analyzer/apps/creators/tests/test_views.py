@@ -5,6 +5,7 @@ from django.urls import reverse
 
 from rrss_creatos_analyzer.apps.core.choices import CreatorStatus
 from rrss_creatos_analyzer.apps.core.choices import PlatformType
+from rrss_creatos_analyzer.apps.creators.models import Creator
 from rrss_creatos_analyzer.apps.creators.tests.factories import ChannelFactory
 from rrss_creatos_analyzer.apps.creators.tests.factories import CreatorFactory
 from rrss_creatos_analyzer.apps.creators.tests.factories import (
@@ -53,6 +54,37 @@ def test_creator_detail_view_renders_dashboard(client):
     assert b"Juan Alberto Garc" in res.content
     assert b"M\xc3\xa1laga" in res.content
     assert b"Twitch" in res.content
+
+
+def test_creator_create_view_with_initial_channel(client):
+    admin = UserFactory(is_superuser=True, is_staff=True)
+    client.force_login(admin)
+
+    url = reverse("creators:creator_create")
+    res_post = client.post(
+        url,
+        data={
+            "display_name": "Rivers GG",
+            "handle": "rivers_gg",
+            "tier": "partner",
+            "status": "active",
+            "main_category": "Gaming & Just Chatting",
+            "language_code": "es",
+            "link_initial_channel": True,
+            "initial_platform": PlatformType.TWITCH,
+            "initial_channel_id": "rivers_gg",
+            "initial_channel_url": "https://twitch.tv/rivers_gg",
+            "initial_followers_count": 6500000,
+        },
+    )
+    assert res_post.status_code == HTTPStatus.FOUND
+    creator = Creator.objects.get(handle="rivers_gg")
+    assert creator.display_name == "Rivers GG"
+    assert creator.channels.count() == 1
+    ch = creator.channels.first()
+    assert ch.platform == PlatformType.TWITCH
+    assert ch.is_primary is True
+    assert ch.followers_count == 6500000
 
 
 def test_creator_personal_info_update_view(client):

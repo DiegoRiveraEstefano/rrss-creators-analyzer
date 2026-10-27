@@ -1,3 +1,5 @@
+import datetime
+
 import pytest
 from django.utils import timezone
 
@@ -5,6 +7,7 @@ from rrss_creatos_analyzer.apps.core.choices import CreatorStatus
 from rrss_creatos_analyzer.apps.core.choices import PlatformType
 from rrss_creatos_analyzer.apps.core.exceptions import BusinessLogicError
 from rrss_creatos_analyzer.apps.creators.services import ChannelService
+from rrss_creatos_analyzer.apps.creators.services import ChannelSnapshotService
 from rrss_creatos_analyzer.apps.creators.services import CreatorService
 from rrss_creatos_analyzer.apps.creators.tests.factories import ChannelFactory
 from rrss_creatos_analyzer.apps.creators.tests.factories import CreatorFactory
@@ -38,6 +41,25 @@ def test_save_creator_with_personal_info():
     assert hasattr(creator, "personal_info")
     assert creator.personal_info.legal_full_name == "Samuel de Luque"
     assert creator.personal_info.city == "Madrid"
+
+
+def test_save_creator_with_initial_channel_onboarding():
+    creator = CreatorService.save_creator(
+        display_name="AuronPlay",
+        handle="auronplay",
+        status=CreatorStatus.ACTIVE,
+        initial_channel_data={
+            "platform": PlatformType.TWITCH,
+            "platform_channel_id": "auronplay",
+            "channel_url": "https://twitch.tv/auronplay",
+            "followers_count": 15000000,
+        },
+    )
+    assert creator.channels.count() == 1
+    channel = creator.channels.first()
+    assert channel.platform == PlatformType.TWITCH
+    assert channel.is_primary is True
+    assert channel.followers_count == 15000000
 
 
 def test_change_creator_status():
@@ -117,3 +139,40 @@ def test_delete_channel_promotes_next_if_was_primary():
     ChannelService.delete_channel(instance=ch1)
     ch2.refresh_from_db()
     assert ch2.is_primary is True
+
+
+def test_snapshot_auto_delta_calculation_and_channel_update():
+    channel = ChannelFactory(
+        followers_count=1000,
+        subscribers_count=50,
+        total_views_count=10000,
+    )
+    d1 = datetime.date(2026, 10, 1)
+    d2 = datetime.date(2026, 10, 2)
+
+    # Primer snapshot
+    s1 = ChannelSnapshotService.save_snapshot(
+        channel=channel,
+        snapshot_date=d1,
+        followers_count=1000,
+        subscribers_count=50,
+        total_views_count=10000,
+    )
+    assert s1.followers_delta == 0
+
+    # Segundo snapshot con crecimiento
+    s2 = ChannelSnapshotService.save_snapshot(
+        channel=channel,
+        snapshot_date=d2,
+        followers_count=1200,
+        subscribers_count=60,
+        total_views_count=12500,
+    )
+    assert s2.followers_delta == 200
+    assert s2.subscribers_delta == 10
+    assert s2.views_delta == 2500
+
+    channel.refresh_from_db()
+    assert channel.followers_count == 1200
+    assert channel.subscribers_count == 60
+    assert channel.total_views_count == 12500
