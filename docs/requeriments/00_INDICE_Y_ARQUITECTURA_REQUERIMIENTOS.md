@@ -10,7 +10,7 @@ La plataforma resuelve la complejidad operativa que enfrentan las agencias al ge
 
 ## 2. Mapa Integral de Módulos y Arquitectura del Dominio
 
-El sistema se compone de 19 aplicaciones modulares estructuradas en la arquitectura de Django, coordinadas a nivel de base de datos relacional (con soporte óptimo de SQLite en modo WAL y vistas analíticas) y tareas asíncronas con Celery:
+El sistema se compone de 20 aplicaciones modulares estructuradas en la arquitectura de Django, coordinadas a nivel de base de datos relacional (con soporte óptimo de SQLite en modo WAL y vistas analíticas) y tareas asíncronas con Celery:
 
 ```mermaid
 graph TD
@@ -25,7 +25,8 @@ graph TD
         M_CONT["contracts (Contratos y Metas)"]
     end
 
-    subgraph "Operación de Contenido y Medios"
+    subgraph "Operación de Contenido, Horarios y Medios"
+        M_SCH["schedules (Pautas, Slots y Compliance)"]
         M_STR["streams (Sesiones en Vivo)"]
         M_VID["videos (Proyectos y Publicaciones)"]
         M_EDT["editors (Postproducción y Tareas)"]
@@ -59,6 +60,9 @@ graph TD
     M_CREAT --> M_USERS
     M_MEMB --> M_CREAT
     M_CONT --> M_CREAT
+    M_SCH --> M_CREAT
+    M_SCH --> M_STR
+    M_PAY --> M_SCH
     M_STR --> M_CREAT
     M_VID --> M_CREAT
     M_EDT --> M_VID
@@ -128,12 +132,15 @@ La suite de requerimientos se encuentra organizada en los siguientes documentos 
     - Matriz de Trazabilidad Total Cruzada (Casos de Uso vs Modelos vs Roles vs Reglas).
     - Compendio Unificado de Reglas de Negocio Globales.
     - Directrices Técnicas de Concurrencia e Integridad.
+12. **[`12_MODULO_SCHEDULES_Y_CUMPLIMIENTO_DE_TRANSMISIONES.md`](file:///home/diego/Proyectos/rrss-creators-analyzer/docs/requeriments/12_MODULO_SCHEDULES_Y_CUMPLIMIENTO_DE_TRANSMISIONES.md)**:
+    - App: `schedules`
+    - Modelos: `CreatorWeeklySchedule`, `CreatorScheduleSlot`, `ScheduleException`, `CreatorScheduleComplianceSummary`
 
 ---
 
 ## 5. Convención de Nomenclatura Estándar
 
-- **Casos de Uso**: `CU-<MÓDULO>-<NÚMERO>` (ej. `CU-CRE-01`, `CU-PAY-03`).
-- **Reglas de Negocio**: `RN-<DOMINIO>-<NÚMERO>` (ej. `RN-SEC-002`, `RN-PAY-003`).
-- **Modelos de Base de Datos**: Notación CamelCase del modelo de Django (`StreamingSession`, `CreatorPayout`).
-- **Estados y Enumeradores**: Valores literales definidos en `TextChoices` (`active`, `pending_approval`, `critical`).
+- **Casos de Uso**: `CU-<MÓDULO>-<NÚMERO>` (ej. `CU-CRE-01`, `CU-PAY-03`, `CU-SCH-01`).
+- **Reglas de Negocio**: `RN-<DOMINIO>-<NÚMERO>` (ej. `RN-SEC-002`, `RN-PAY-003`, `RN-SCH-001`).
+- **Modelos de Base de Datos**: Notación CamelCase del modelo de Django (`StreamingSession`, `CreatorScheduleSlot`).
+- **Estados y Enumeradores**: Valores literales definidos en `TextChoices` (`active`, `scheduled`, `completed`, `late`, `missed`).

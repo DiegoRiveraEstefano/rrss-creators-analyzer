@@ -26,6 +26,12 @@ La siguiente matriz consolida la relación bidireccional entre los Casos de Uso,
 | **CU-STR-04** | Marcar y Conciliar Stream Patrocinado | `streams`, `campaigns` | `StreamingSession`, `CampaignDeliverable` | Talent Manager, Finance | RN-STR-007, RN-CAM-006 |
 | **CU-STR-05** | Analizar Rendimiento Comparativo por Categoría | `streams`, `analytics` | `StreamingSession`, `SessionSegment` | Analyst, Manager | RN-STR-004, RN-DAT-005 |
 | **CU-STR-06** | Vincular Stream con Videos/Clips Derivados | `streams`, `videos` | `StreamingSession`, `VideoRelation`, `Video` | Video Editor, Manager | RN-STR-001, RN-VID-008 |
+| **CU-SCH-01** | Configurar Pauta Semanal Recurrente del Creador | `schedules` | `CreatorWeeklySchedule`, `Creator` | Talent Manager, Admin | RN-SCH-003, RN-SCH-008 |
+| **CU-SCH-02** | Generar Lote de Slots en Calendario para un Periodo | `schedules` | `CreatorScheduleSlot`, `CreatorWeeklySchedule` | Talent Manager, Analyst | RN-SCH-004, RN-SCH-006 |
+| **CU-SCH-03** | Crear Slot Extraordinario o Ad-hoc | `schedules` | `CreatorScheduleSlot`, `Creator` | Talent Manager | RN-SCH-008, RN-SCH-007 |
+| **CU-SCH-04** | Conciliar Sesiones Reales con Slots de Calendario | `schedules`, `streams` | `CreatorScheduleSlot`, `StreamingSession` | Celery Beat, Analyst | RN-SCH-001, RN-SCH-002, RN-SCH-005, RN-SCH-010 |
+| **CU-SCH-05** | Registrar y Aprobar Justificación de Ausencia | `schedules` | `ScheduleException`, `CreatorScheduleSlot` | Creador, Talent Manager | RN-SCH-006 |
+| **CU-SCH-06** | Generar y Auditar Resumen Mensual de Cumplimiento | `schedules`, `contracts` | `CreatorScheduleComplianceSummary`, `Contract` | Analyst, Finance Director | RN-SCH-006, RN-SCH-007, RN-SCH-009 |
 | **CU-VID-01** | Dar de Alta una Idea o Proyecto de Video | `videos` | `Video`, `Creator` | Manager, Creador, Editor | RN-VID-001, RN-VID-002 |
 | **CU-VID-02** | Registrar y Controlar Costes de Producción | `videos` | `Video` | Finance Director, Manager | RN-VID-003, RN-VID-005 |
 | **CU-VID-03** | Avanzar Etapas en el Pipeline (Kanban) | `videos` | `Video` | Manager, Editor, Creador | RN-VID-002 |
