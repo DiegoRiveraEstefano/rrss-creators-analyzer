@@ -1,17 +1,26 @@
+from __future__ import annotations
+
 import logging
+from typing import TYPE_CHECKING
+from typing import Any
 
 from django.core.cache import cache
 from django.db import transaction
 from django.utils import timezone
-from slugify import slugify
+from django.utils.text import slugify
 
+from rrss_creatos_analyzer.apps.core.choices import ChannelStatus
 from rrss_creatos_analyzer.apps.core.choices import CreatorStatus
+from rrss_creatos_analyzer.apps.core.choices import PlatformType
 from rrss_creatos_analyzer.apps.core.exceptions import BusinessLogicError
 
 from .models import Channel
 from .models import ChannelSnapshot
 from .models import Creator
 from .models import CreatorPersonalInfo
+
+if TYPE_CHECKING:
+    from django.db.models import QuerySet
 
 logger = logging.getLogger(__name__)
 
@@ -23,28 +32,23 @@ class CreatorService:
         cls,
         *,
         instance: Creator | None = None,
-        tags=None,
-        personal_info_data: dict | None = None,
+        personal_info_data: dict[str, Any] | None = None,
+        initial_channel_data: dict[str, Any] | None = None,
         **data,
     ) -> Creator:
         creator = instance or Creator()
+        is_new = creator.pk is None
 
-        # Normalizar slug a partir del handle si no fue proporcionado
-        handle = data.get("handle") or getattr(creator, "handle", "")
-        if not data.get("slug") and handle:
-            data["slug"] = slugify(handle)
+        # Autogenerar slug si no se proporcionó o viene vacío
+        if not data.get("slug") and data.get("handle"):
+            data["slug"] = slugify(data["handle"])
 
-        # Regla de negocio de ciclo de vida: fechas según estado
-        new_status = data.get("status", getattr(creator, "status", None))
-        if new_status in [CreatorStatus.INACTIVE, CreatorStatus.TERMINATED]:
-            if not data.get("left_company_at") and not creator.left_company_at:
-                data["left_company_at"] = timezone.localdate()
-        elif new_status == CreatorStatus.ACTIVE:
-            if not data.get("joined_company_at") and not creator.joined_company_at:
-                data["joined_company_at"] = timezone.localdate()
-            if "left_company_at" not in data:
-                data["left_company_at"] = None
+        # Si es un nuevo creador y no se especificó joined_company_at, inicializar con la fecha actual
+        if is_new and "joined_company_at" not in data:
+            creator.joined_company_at = timezone.localdate()
 
+        # Asignar campos al modelo
+        tags = data.pop("tags", None)
         for field, value in data.items():
             setattr(creator, field, value)
 
@@ -53,16 +57,48 @@ class CreatorService:
         if tags is not None:
             creator.tags.set(tags)
 
-        # Guardar o actualizar datos personales si se suministraron
+        # Si se suministran datos KYC en el mismo flujo
         if personal_info_data is not None:
             cls.save_personal_info(creator=creator, **personal_info_data)
+
+        # Flujo ágil de onboarding: si es un nuevo creador y se incluyó canal inicial
+        if is_new and initial_channel_data and initial_channel_data.get("platform"):
+            platform = initial_channel_data.get("platform")
+            channel_id = (
+                initial_channel_data.get(
+                    "platform_channel_id",
+                )
+                or initial_channel_data.get("handle")
+                or creator.handle
+            )
+
+            ChannelService.save_channel(
+                creator=creator,
+                platform=platform,
+                platform_channel_id=channel_id,
+                handle=initial_channel_data.get("handle", creator.handle),
+                channel_name=initial_channel_data.get(
+                    "channel_name",
+                    f"{creator.display_name} en {platform.capitalize()}",
+                ),
+                channel_url=initial_channel_data.get("channel_url", ""),
+                is_primary=True,
+                status=ChannelStatus.ACTIVE,
+                followers_count=initial_channel_data.get("followers_count", 0),
+                subscribers_count=initial_channel_data.get("subscribers_count", 0),
+                total_views_count=initial_channel_data.get("total_views_count", 0),
+            )
 
         transaction.on_commit(
             lambda: cache.delete("analytics:creator_performance_summary:v1"),
         )
         logger.info(
             "creator_saved",
-            extra={"creator_id": creator.id, "handle": creator.handle},
+            extra={
+                "creator_id": creator.id,
+                "handle": creator.handle,
+                "is_new": is_new,
+            },
         )
         return creator
 
@@ -278,9 +314,65 @@ class ChannelSnapshotService:
             msg = "Las métricas de snapshot no pueden ser negativas."
             raise BusinessLogicError(msg)
 
+        channel = data.get("channel", getattr(snapshot, "channel", None))
+        snapshot_date = data.get(
+            "snapshot_date", getattr(snapshot, "snapshot_date", timezone.localdate())
+        )
+
+        # Cálculo automático de deltas si no se proporcionaron explícitamente
+        if channel and (
+            "followers_delta" not in data or data.get("followers_delta") == 0
+        ):
+            prev_snapshot = (
+                ChannelSnapshot.objects.filter(
+                    channel=channel,
+                    snapshot_date__lt=snapshot_date,
+                )
+                .exclude(pk=snapshot.pk or 0)
+                .order_by("-snapshot_date")
+                .first()
+            )
+            if prev_snapshot:
+                data.setdefault(
+                    "followers_delta", followers - prev_snapshot.followers_count
+                )
+                data.setdefault(
+                    "subscribers_delta", subscribers - prev_snapshot.subscribers_count
+                )
+                data.setdefault(
+                    "views_delta", total_views - prev_snapshot.total_views_count
+                )
+
         for field, value in data.items():
             setattr(snapshot, field, value)
+
         snapshot.save()
+
+        # Actualizar métricas actuales del canal con los datos del snapshot más reciente
+        if channel:
+            latest_date = (
+                ChannelSnapshot.objects.filter(channel=channel)
+                .order_by("-snapshot_date")
+                .values_list("snapshot_date", flat=True)
+                .first()
+            )
+            if latest_date == snapshot.snapshot_date:
+                channel.followers_count = snapshot.followers_count
+                channel.subscribers_count = snapshot.subscribers_count
+                channel.paid_subscribers_count = snapshot.paid_subscribers_count
+                channel.total_views_count = snapshot.total_views_count
+                channel.last_synced_at = timezone.now()
+                channel.save(
+                    update_fields=[
+                        "followers_count",
+                        "subscribers_count",
+                        "paid_subscribers_count",
+                        "total_views_count",
+                        "last_synced_at",
+                        "updated_at",
+                    ],
+                )
+
         logger.info(
             "channel_snapshot_saved",
             extra={"snapshot_id": snapshot.id, "channel_id": snapshot.channel_id},

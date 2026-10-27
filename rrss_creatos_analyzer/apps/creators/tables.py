@@ -71,10 +71,10 @@ class ChannelTable(tables.Table):
     is_live = tables.TemplateColumn(
         template_code=(
             "{% if record.is_live %}"
-            '<span class="badge text-bg-danger">'
-            '<i class="bi bi-broadcast"></i> EN VIVO</span>'
+            '<span class="badge text-bg-danger animate-pulse">'
+            '<i class="bi bi-broadcast me-1"></i>EN VIVO</span>'
             "{% else %}"
-            '<span class="badge text-bg-light text-muted">Offline</span>'
+            '<span class="badge text-bg-light text-muted border">Offline</span>'
             "{% endif %}"
         ),
         verbose_name=_("Transmisión"),
@@ -107,9 +107,18 @@ class ChannelSnapshotTable(tables.Table):
         verbose_name=_("Seguidores"),
         attrs={"td": {"class": "text-end font-monospace"}},
     )
-    followers_delta = tables.Column(
+    followers_delta = tables.TemplateColumn(
+        template_code=(
+            "{% if record.followers_delta > 0 %}"
+            '<span class="text-success fw-bold font-monospace">+{{ record.followers_delta }}</span>'
+            "{% elif record.followers_delta < 0 %}"
+            '<span class="text-danger fw-bold font-monospace">{{ record.followers_delta }}</span>'
+            "{% else %}"
+            '<span class="text-muted font-monospace">0</span>'
+            "{% endif %}"
+        ),
         verbose_name=_("Δ Seguidores"),
-        attrs={"td": {"class": "text-end font-monospace"}},
+        attrs={"td": {"class": "text-end"}},
     )
     subscribers_count = tables.Column(
         verbose_name=_("Suscriptores"),
@@ -118,6 +127,19 @@ class ChannelSnapshotTable(tables.Table):
     total_views_count = tables.Column(
         verbose_name=_("Total Vistas"),
         attrs={"td": {"class": "text-end font-monospace"}},
+    )
+    views_delta = tables.TemplateColumn(
+        template_code=(
+            "{% if record.views_delta > 0 %}"
+            '<span class="text-success font-monospace">+{{ record.views_delta }}</span>'
+            "{% elif record.views_delta < 0 %}"
+            '<span class="text-danger font-monospace">{{ record.views_delta }}</span>'
+            "{% else %}"
+            '<span class="text-muted font-monospace">0</span>'
+            "{% endif %}"
+        ),
+        verbose_name=_("Δ Vistas"),
+        attrs={"td": {"class": "text-end"}},
     )
     actions = tables.TemplateColumn(
         template_name="creators/includes/snapshot_actions.html",
@@ -135,5 +157,6 @@ class ChannelSnapshotTable(tables.Table):
             "followers_delta",
             "subscribers_count",
             "total_views_count",
+            "views_delta",
         )
         attrs = {"class": "table table-hover table-striped align-middle mb-0"}
