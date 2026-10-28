@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{{ page_title }} | {{ block.super }}{% endblock title %}
+
+{% block content %}
+<div class="container-fluid py-4">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h1 class="h3 mb-0">{{ page_title }}</h1>
+      <p class="text-muted mb-0">{{ page_subtitle }}</p>
+    </div>
+    <a href="{% url 'videos:video_list' %}" class="btn btn-outline-secondary">
+      <i class="bi bi-arrow-left"></i> {% translate "Volver a Videos" %}
+    </a>
+  </div>
+
+  <div class="card shadow-sm border-0">
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead class="table-light">
+            <tr>
+              <th>{% translate "Video" %}</th>
+              <th>{% translate "Creador" %}</th>
+              <th>{% translate "Formato" %}</th>
+              <th class="text-end">{% translate "Coste Producción" %}</th>
+              <th class="text-end">{% translate "Ingresos Estimados" %}</th>
+              <th class="text-end">{% translate "Beneficio Neto" %}</th>
+              <th class="text-end">{% translate "ROI (%)" %}</th>
+              <th class="text-center">{% translate "Diagnóstico" %}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in audit_data %}
+            <tr>
+              <td>
+                <a href="{{ row.video.get_absolute_url }}" class="fw-semibold text-decoration-none">
+                  {{ row.video.title }}
+                </a>
+              </td>
+              <td>{{ row.video.creator.display_name }}</td>
+              <td><span class="badge bg-secondary">{{ row.video.get_content_format_display }}</span></td>
+              <td class="text-end">${{ row.production_cost|floatformat:2 }}</td>
+              <td class="text-end">${{ row.estimated_revenue|floatformat:2 }}</td>
+              <td class="text-end {% if row.net_profit >= 0 %}text-success{% else %}text-danger{% endif %} fw-semibold">
+                ${{ row.net_profit|floatformat:2 }}
+              </td>
+              <td class="text-end">
+                {% if row.roi_percentage is not None %}
+                  {{ row.roi_percentage }}%
+                {% else %}
+                  <span class="text-muted">N/A</span>
+                {% endif %}
+              </td>
+              <td class="text-center">
+                {% if row.profit_category == "Rentable" %}
+                  <span class="badge bg-success">{% translate "Rentable" %}</span>
+                {% elif row.profit_category == "Equilibrio" %}
+                  <span class="badge bg-warning text-dark">{% translate "Equilibrio" %}</span>
+                {% elif row.profit_category == "Deficitario" %}
+                  <span class="badge bg-danger">{% translate "Deficitario" %}</span>
+                {% else %}
+                  <span class="badge bg-light text-dark">N/A</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% empty %}
+            <tr>
+              <td colspan="8" class="text-center py-4 text-muted">
+                {% translate "No hay videos registrados para la auditoría financiera." %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock content %}
