@@ -31,10 +31,57 @@
               src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.2.3/js/bootstrap.bundle.min.js"
               crossorigin="anonymous"
               referrerpolicy="no-referrer"></script>
+      <script src="https://unpkg.com/quicklink@3.0.2/dist/quicklink.umd.js"></script>
       {% compress js %}
         <script defer src="{% static 'js/project.js' %}"></script>
       {% endcompress %}
     {% endblock javascript %}
+    <script type="speculationrules">
+      {
+        "prefetch": [
+          {
+            "source": "list",
+            "urls": [
+              "{% url 'home' %}",
+              "{% url 'about' %}"{% if request.user.is_authenticated %},
+              "{% url 'creators:creator_list' %}",
+              "{% url 'creators:channel_list' %}",
+              "{% url 'creators:snapshot_list' %}",
+              "{% url 'contracts:contract_list' %}",
+              "{% url 'schedules:calendar' %}",
+              "{% url 'streams:session_list' %}",
+              "{% url 'streams:segment_list' %}",
+              "{% url 'videos:video_list' %}",
+              "{% url 'videos:publication_list' %}",
+              "{% url 'videos:relation_list' %}",
+              "{% url 'editors:editor_list' %}",
+              "{% url 'editors:assignment_list' %}",
+              "{% url 'editors:task_list' %}",
+              "{% url 'campaigns:campaign_list' %}",
+              "{% url 'campaigns:deliverable_list' %}",
+              "{% url 'payouts:payout_list' %}",
+              "{% url 'alerts:alert_list' %}",
+              "{% url 'analytics:snapshot_list' %}",
+              "{% url 'users:list' %}",
+              "{% url 'permissions:role_list' %}",
+              "{% url 'members:invitation_list' %}",
+              "{% url 'members:assignment_list' %}",
+              "{% url 'imports:batch_list' %}",
+              "{% url 'exports:export_list' %}",
+              "{% url 'audit:audit_list' %}",
+              "{% url 'logs:log_list' %}",
+              "{% url 'monitor:health_list' %}",
+              "{% url 'backups:backup_list' %}",
+              "{% url 'core:settings_list' %}",
+              "{% url 'users:detail' request.user.username %}"{% else %},
+              "{% url 'account_login' %}"{% if ACCOUNT_ALLOW_REGISTRATION %},
+              "{% url 'account_signup' %}"{% endif %}{% endif %}
+            ],
+            "eagerness": "moderate"
+          }
+        ]
+      }
+    </script>
   </head>
   <body class="{% block bodyclass %}bg-light{% endblock bodyclass %}">
     {% block body %}
@@ -256,5 +303,8 @@
     {% endblock modal %}
     {% block inline_javascript %}
     {% endblock inline_javascript %}
+    <script>
+      quicklink.listen();
+    </script>
   </body>
 </html>
