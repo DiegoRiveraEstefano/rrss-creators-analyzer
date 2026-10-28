@@ -4,6 +4,7 @@ from decimal import Decimal
 import pytest
 from django.utils import timezone
 
+from rrss_creatos_analyzer.apps.core.choices import VideoStatus
 from rrss_creatos_analyzer.apps.core.exceptions import BusinessLogicError
 from rrss_creatos_analyzer.apps.creators.tests.factories import CreatorFactory
 from rrss_creatos_analyzer.apps.editors.choices import EditorAssignmentRole
@@ -15,6 +16,7 @@ from rrss_creatos_analyzer.apps.editors.models import Editor
 from rrss_creatos_analyzer.apps.editors.services import EditingTaskService
 from rrss_creatos_analyzer.apps.editors.services import EditorAssignmentService
 from rrss_creatos_analyzer.apps.editors.services import EditorService
+from rrss_creatos_analyzer.apps.videos.models import Video
 
 from .factories import EditingTaskFactory
 from .factories import EditorFactory
@@ -60,121 +62,130 @@ class TestEditorService:
         with pytest.raises(BusinessLogicError, match="tareas de edición en curso"):
             EditorService.delete_editor(instance=editor)
 
-    def test_delete_editor_without_active_tasks(self):
+    def test_delete_editor_without_active_tasks_succeeds(self):
         editor = EditorFactory()
+        EditingTaskFactory(editor=editor, status=TaskStatus.COMPLETED)
+
         EditorService.delete_editor(instance=editor)
         assert not Editor.objects.filter(pk=editor.pk).exists()
 
 
 class TestEditorAssignmentService:
     def test_save_assignment_happy_path(self):
-        creator = CreatorFactory()
         editor = EditorFactory()
+        creator = CreatorFactory()
+        start = timezone.localdate()
+
         assignment = EditorAssignmentService.save_assignment(
-            creator=creator,
             editor=editor,
+            creator=creator,
             role=EditorAssignmentRole.LEAD_EDITOR,
-            start_date=timezone.localdate(),
-            is_primary=True,
+            start_date=start,
+            agreed_video_rate=Decimal("180.00"),
         )
         assert assignment.pk is not None
-        assert assignment.is_primary is True
+        assert assignment.agreed_video_rate == Decimal("180.00")
 
     def test_save_assignment_exclusive_primary(self):
+        editor1 = EditorFactory()
+        editor2 = EditorFactory()
         creator = CreatorFactory()
-        ed1 = EditorFactory()
-        ed2 = EditorFactory()
+        start = timezone.localdate()
 
-        asg1 = EditorAssignmentService.save_assignment(
+        a1 = EditorAssignmentService.save_assignment(
+            editor=editor1,
             creator=creator,
-            editor=ed1,
             role=EditorAssignmentRole.LEAD_EDITOR,
-            start_date=timezone.localdate(),
+            start_date=start,
             is_primary=True,
         )
-        asg2 = EditorAssignmentService.save_assignment(
+        assert a1.is_primary is True
+
+        a2 = EditorAssignmentService.save_assignment(
+            editor=editor2,
             creator=creator,
-            editor=ed2,
             role=EditorAssignmentRole.LEAD_EDITOR,
-            start_date=timezone.localdate(),
+            start_date=start,
             is_primary=True,
         )
+        a1.refresh_from_db()
+        assert a2.is_primary is True
+        assert a1.is_primary is False
 
-        asg1.refresh_from_db()
-        assert asg1.is_primary is False
-        assert asg2.is_primary is True
+    def test_save_assignment_invalid_dates_raises_error(self):
+        editor = EditorFactory()
+        creator = CreatorFactory()
+        start = timezone.localdate()
 
-    def test_save_assignment_invalid_dates(self):
-        today = timezone.localdate()
         with pytest.raises(BusinessLogicError, match="no puede ser posterior"):
             EditorAssignmentService.save_assignment(
-                creator=CreatorFactory(),
-                editor=EditorFactory(),
+                editor=editor,
+                creator=creator,
                 role=EditorAssignmentRole.LEAD_EDITOR,
-                start_date=today,
-                end_date=today - timedelta(days=5),
+                start_date=start,
+                end_date=start - timedelta(days=1),
             )
 
 
 class TestEditingTaskService:
     def test_create_task_happy_path(self):
+        editor = EditorFactory(base_video_rate=Decimal("150.00"))
         creator = CreatorFactory()
-        editor = EditorFactory(base_video_rate=Decimal("180.00"), max_active_tasks=5)
         today = timezone.localdate()
 
         task = EditingTaskService.create_task(
             creator=creator,
             editor=editor,
-            title="Video Gameplay 1",
-            assigned_date=today,
+            title="Video #1",
             deadline=today + timedelta(days=3),
-            task_type=TaskType.LONG_FORM_EDIT,
         )
         assert task.pk is not None
+        assert task.agreed_cost == Decimal("150.00")
         assert task.status == TaskStatus.ASSIGNED
-        assert task.agreed_cost == Decimal("180.00")
 
     def test_create_task_inactive_editor_raises_error(self):
         editor = EditorFactory(status=EditorStatus.INACTIVE)
+        creator = CreatorFactory()
         today = timezone.localdate()
+
         with pytest.raises(BusinessLogicError, match="se encuentra inactivo"):
             EditingTaskService.create_task(
-                creator=CreatorFactory(),
+                creator=creator,
                 editor=editor,
-                title="Test Video",
-                assigned_date=today,
-                deadline=today + timedelta(days=2),
+                title="Video #1",
+                deadline=today + timedelta(days=3),
             )
 
-    def test_create_task_capacity_reached_raises_error(self):
+    def test_create_task_max_capacity_reached_raises_error(self):
         editor = EditorFactory(max_active_tasks=1)
-        EditingTaskFactory(editor=editor, status=TaskStatus.IN_PROGRESS)
+        creator = CreatorFactory()
         today = timezone.localdate()
+
+        EditingTaskFactory(editor=editor, status=TaskStatus.ASSIGNED)
 
         with pytest.raises(BusinessLogicError, match="capacidad máxima"):
             EditingTaskService.create_task(
-                creator=CreatorFactory(),
+                creator=creator,
                 editor=editor,
-                title="Another task",
-                assigned_date=today,
-                deadline=today + timedelta(days=2),
+                title="Video #2",
+                deadline=today + timedelta(days=3),
             )
 
-    def test_submit_revision_and_review(self):
-        task = EditingTaskFactory(revision_count=0, status=TaskStatus.IN_PROGRESS)
+    def test_workflow_revision_cycle_and_approval(self):
+        task = EditingTaskFactory(status=TaskStatus.ASSIGNED)
 
-        # Submit revision
+        # Submit revision 1
         rev = EditingTaskService.submit_revision(
             task=task,
             render_url="https://vimeo.com/test1",
-            change_summary="Primer corte terminado",
+            change_summary="Primer corte",
         )
         task.refresh_from_db()
-        assert task.revision_count == 1
         assert task.status == TaskStatus.IN_REVIEW
+        assert task.revision_count == 1
         assert rev.status == RevisionStatus.PENDING_REVIEW
 
-        # Review with changes requested
+        # Request changes on revision 1
         EditingTaskService.review_revision(
             revision=rev,
             approved=False,
@@ -205,6 +216,70 @@ class TestEditingTaskService:
         assert task.status == TaskStatus.APPROVED
         assert task.final_render_url == "https://vimeo.com/test2"
 
+    def test_start_task(self):
+        task = EditingTaskFactory(status=TaskStatus.ASSIGNED)
+        started = EditingTaskService.start_task(task=task)
+        assert started.status == TaskStatus.IN_PROGRESS
+
+        with pytest.raises(BusinessLogicError, match="estado asignado"):
+            EditingTaskService.start_task(task=started)
+
+    def test_submit_revision_when_pending_revision_exists_raises_error(self):
+        task = EditingTaskFactory(status=TaskStatus.ASSIGNED)
+        EditingTaskService.submit_revision(
+            task=task,
+            render_url="https://vimeo.com/test1",
+        )
+        with pytest.raises(BusinessLogicError, match="pendiente de revisión"):
+            EditingTaskService.submit_revision(
+                task=task,
+                render_url="https://vimeo.com/test2",
+            )
+
+    def test_submit_revision_on_approved_task_raises_error(self):
+        task = EditingTaskFactory(status=TaskStatus.APPROVED)
+        with pytest.raises(BusinessLogicError, match="ya está aprobada"):
+            EditingTaskService.submit_revision(
+                task=task,
+                render_url="https://vimeo.com/test3",
+            )
+
+    def test_thumbnail_task_imputation_and_status_advance(self):
+        creator = CreatorFactory()
+        editor = EditorFactory(base_short_rate=Decimal("40.00"))
+        video = Video.objects.create(
+            creator=creator,
+            title="Video Master Test",
+            status=VideoStatus.EDITING,
+            production_cost=Decimal("100.00"),
+        )
+        today = timezone.localdate()
+
+        task = EditingTaskService.create_task(
+            creator=creator,
+            editor=editor,
+            video=video,
+            title="Diseño de Miniatura",
+            task_type=TaskType.THUMBNAIL,
+            deadline=today + timedelta(days=2),
+        )
+        video.refresh_from_db()
+        assert video.thumbnail_cost == Decimal("40.00")
+        assert video.total_production_cost == Decimal("140.00")
+
+        rev = EditingTaskService.submit_revision(
+            task=task,
+            render_url="https://drive.google.com/thumb.png",
+        )
+        EditingTaskService.review_revision(
+            revision=rev,
+            approved=True,
+            feedback="Miniatura aprobada",
+        )
+        video.refresh_from_db()
+        assert video.thumbnail_cost == Decimal("40.00")
+        assert video.status == VideoStatus.READY
+
     def test_complete_and_pay_task(self):
         task = EditingTaskFactory(status=TaskStatus.APPROVED)
         EditingTaskService.complete_task(task=task)
@@ -214,3 +289,15 @@ class TestEditingTaskService:
         EditingTaskService.mark_as_paid(task=task)
         assert task.is_paid is True
         assert task.paid_at is not None
+
+    def test_mark_as_paid_on_unapproved_task_raises_error(self):
+        task = EditingTaskFactory(status=TaskStatus.ASSIGNED)
+        with pytest.raises(BusinessLogicError, match="previamente aprobadas"):
+            EditingTaskService.mark_as_paid(task=task)
+
+    def test_mark_as_paid_on_approved_transitions_to_completed(self):
+        task = EditingTaskFactory(status=TaskStatus.APPROVED)
+        EditingTaskService.mark_as_paid(task=task)
+        task.refresh_from_db()
+        assert task.status == TaskStatus.COMPLETED
+        assert task.is_paid is True

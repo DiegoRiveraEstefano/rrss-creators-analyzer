@@ -1,5 +1,11 @@
+from datetime import timedelta
+
 import pytest
+from django.core.exceptions import ValidationError
 from django.db.utils import IntegrityError
+from django.utils import timezone
+
+from rrss_creatos_analyzer.apps.editors.choices import TaskStatus
 
 from .factories import EditingTaskFactory
 from .factories import EditorAssignmentFactory
@@ -43,6 +49,42 @@ class TestEditingTaskModel:
         task = EditingTaskFactory(title="YouTube VOD #45")
         assert "YouTube VOD #45" in str(task)
         assert task.get_absolute_url() == f"/editors/tasks/{task.pk}/"
+
+    def test_is_overdue_property(self):
+        today = timezone.localdate()
+        task_overdue = EditingTaskFactory(
+            deadline=today - timedelta(days=2),
+            status=TaskStatus.IN_PROGRESS,
+        )
+        assert task_overdue.is_overdue is True
+
+        task_completed = EditingTaskFactory(
+            deadline=today - timedelta(days=2),
+            status=TaskStatus.COMPLETED,
+        )
+        assert task_completed.is_overdue is False
+
+        task_future = EditingTaskFactory(
+            deadline=today + timedelta(days=2),
+            status=TaskStatus.IN_PROGRESS,
+        )
+        assert task_future.is_overdue is False
+
+    def test_clean_validation(self):
+        today = timezone.localdate()
+        task = EditingTaskFactory.build(
+            assigned_date=today,
+            deadline=today - timedelta(days=1),
+        )
+        with pytest.raises(ValidationError):
+            task.clean()
+
+        task_unpaid = EditingTaskFactory.build(
+            status=TaskStatus.ASSIGNED,
+            is_paid=True,
+        )
+        with pytest.raises(ValidationError):
+            task_unpaid.clean()
 
 
 class TestTaskRevisionModel:

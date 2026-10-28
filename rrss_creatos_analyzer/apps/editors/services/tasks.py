@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 from django.db import transaction
 from django.utils import timezone
 
+from rrss_creatos_analyzer.apps.core.choices import VideoStatus
 from rrss_creatos_analyzer.apps.core.exceptions import BusinessLogicError
 from rrss_creatos_analyzer.apps.editors.choices import AssignmentStatus
 from rrss_creatos_analyzer.apps.editors.choices import EditorStatus
@@ -28,7 +29,7 @@ logger = logging.getLogger(__name__)
 class EditingTaskService:
     @classmethod
     @transaction.atomic
-    def create_task(  # noqa: PLR0913
+    def create_task(  # noqa: C901, PLR0913
         cls,
         *,
         creator: Creator,
@@ -97,6 +98,7 @@ class EditingTaskService:
                     else editor.base_video_rate
                 )
 
+        cost = agreed_cost or Decimal("0.00")
         task = EditingTask.objects.create(
             title=title,
             creator=creator,
@@ -106,7 +108,7 @@ class EditingTaskService:
             priority=priority,
             assigned_date=assigned_date,
             deadline=deadline,
-            agreed_cost=agreed_cost or Decimal("0.00"),
+            agreed_cost=cost,
             brief=brief,
             raw_footage_url=raw_footage_url,
             status=TaskStatus.ASSIGNED,
@@ -117,9 +119,12 @@ class EditingTaskService:
             task.tags.set(tags)
 
         if video:
-            video.editing_cost = task.agreed_cost
+            if task_type == TaskType.THUMBNAIL:
+                video.thumbnail_cost = cost
+            else:
+                video.editing_cost = cost
             video.total_production_cost = (
-                video.production_cost + task.agreed_cost + video.thumbnail_cost
+                video.production_cost + video.editing_cost + video.thumbnail_cost
             )
             if editor.user and not video.assigned_editor:
                 video.assigned_editor = editor.user
@@ -134,6 +139,17 @@ class EditingTaskService:
                 "video_id": video.id if video else None,
             },
         )
+        return task
+
+    @classmethod
+    @transaction.atomic
+    def start_task(cls, *, task: EditingTask) -> EditingTask:
+        if task.status != TaskStatus.ASSIGNED:
+            msg = "Solo se pueden iniciar tareas en estado asignado."
+            raise BusinessLogicError(msg)
+        task.status = TaskStatus.IN_PROGRESS
+        task.save()
+        logger.info("editing_task_started", extra={"task_id": task.id})
         return task
 
     @classmethod
@@ -154,9 +170,12 @@ class EditingTaskService:
 
         if instance.video and "agreed_cost" in data:
             v = instance.video
-            v.editing_cost = instance.agreed_cost
+            if instance.task_type == TaskType.THUMBNAIL:
+                v.thumbnail_cost = instance.agreed_cost
+            else:
+                v.editing_cost = instance.agreed_cost
             v.total_production_cost = (
-                v.production_cost + instance.agreed_cost + v.thumbnail_cost
+                v.production_cost + v.editing_cost + v.thumbnail_cost
             )
             v.save()
 
@@ -175,6 +194,24 @@ class EditingTaskService:
         if not render_url:
             msg = (
                 "Debe proporcionar una URL válida para el corte / render de la versión."
+            )
+            raise BusinessLogicError(msg)
+
+        if task.status in [
+            TaskStatus.APPROVED,
+            TaskStatus.COMPLETED,
+            TaskStatus.CANCELLED,
+        ]:
+            msg = (
+                "No se pueden enviar revisiones para una tarea que ya está aprobada, "
+                "completada o cancelada."
+            )
+            raise BusinessLogicError(msg)
+
+        if task.revisions.filter(status=RevisionStatus.PENDING_REVIEW).exists():
+            msg = (
+                "No se puede enviar una nueva versión mientras exista una entrega "
+                "pendiente de revisión."
             )
             raise BusinessLogicError(msg)
 
@@ -228,6 +265,21 @@ class EditingTaskService:
 
             if task.video:
                 task.video.master_asset_url = revision.render_url
+                if task.task_type == TaskType.THUMBNAIL:
+                    task.video.thumbnail_cost = task.agreed_cost
+                else:
+                    task.video.editing_cost = task.agreed_cost
+                task.video.total_production_cost = (
+                    task.video.production_cost
+                    + task.video.editing_cost
+                    + task.video.thumbnail_cost
+                )
+                if task.video.status in [
+                    VideoStatus.RECORDING,
+                    VideoStatus.EDITING,
+                    VideoStatus.REVIEW,
+                ]:
+                    task.video.status = VideoStatus.READY
                 task.video.save()
         else:
             revision.status = RevisionStatus.CHANGES_REQUESTED
@@ -258,7 +310,7 @@ class EditingTaskService:
             task.final_render_url = final_render_url
 
         task.status = TaskStatus.COMPLETED
-        task.delivered_at = timezone.now()
+        task.delivered_at = task.delivered_at or timezone.now()
         task.save()
 
         if task.video and task.final_render_url:
@@ -271,8 +323,17 @@ class EditingTaskService:
     @classmethod
     @transaction.atomic
     def mark_as_paid(cls, *, task: EditingTask) -> EditingTask:
+        if task.status not in [TaskStatus.APPROVED, TaskStatus.COMPLETED]:
+            msg = (
+                "Solo se pueden liquidar tareas que hayan sido previamente "
+                "aprobadas o completadas."
+            )
+            raise BusinessLogicError(msg)
+
         task.is_paid = True
         task.paid_at = timezone.now()
+        if task.status == TaskStatus.APPROVED:
+            task.status = TaskStatus.COMPLETED
         task.save()
         logger.info("editing_task_paid", extra={"task_id": task.id})
         return task

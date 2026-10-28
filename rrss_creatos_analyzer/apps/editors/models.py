@@ -2,9 +2,11 @@ from decimal import Decimal
 
 from auditlog.registry import auditlog
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Q
 from django.urls import reverse
+from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from simple_history.models import HistoricalRecords
 from taggit.managers import TaggableManager
@@ -312,6 +314,38 @@ class EditingTask(BaseModel):
 
     def get_absolute_url(self) -> str:
         return reverse("editors:task_detail", kwargs={"pk": self.pk})
+
+    @property
+    def is_overdue(self) -> bool:
+        return self.deadline < timezone.localdate() and self.status in [
+            TaskStatus.ASSIGNED,
+            TaskStatus.IN_PROGRESS,
+            TaskStatus.REVISION_REQUESTED,
+        ]
+
+    def clean(self) -> None:
+        super().clean()
+        if self.assigned_date and self.deadline and self.deadline < self.assigned_date:
+            raise ValidationError(
+                {
+                    "deadline": _(
+                        "La fecha límite (deadline) no puede ser anterior "
+                        "a la fecha de asignación.",
+                    ),
+                },
+            )
+        if self.is_paid and self.status not in [
+            TaskStatus.APPROVED,
+            TaskStatus.COMPLETED,
+        ]:
+            raise ValidationError(
+                {
+                    "is_paid": _(
+                        "Una tarea solo puede marcarse como pagada si previamente "
+                        "alcanzó el estado aprobado o completado.",
+                    ),
+                },
+            )
 
 
 @auditlog.register()
