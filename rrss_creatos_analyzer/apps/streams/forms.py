@@ -1,8 +1,11 @@
+from decimal import Decimal
+
 from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Column
 from crispy_forms.layout import Layout
 from crispy_forms.layout import Row
 from django import forms
+from django.utils.translation import gettext_lazy as _
 
 from .models import SessionSegment
 from .models import StreamingSession
@@ -95,6 +98,39 @@ class StreamingSessionForm(forms.ModelForm):
             "notes",
         )
 
+    def clean(self):
+        cleaned_data = super().clean()
+        streamed_at = cleaned_data.get("streamed_at")
+        ended_at = cleaned_data.get("ended_at")
+        if streamed_at and ended_at and ended_at < streamed_at:
+            self.add_error(
+                "ended_at",
+                _("La fecha/hora de fin no puede ser anterior a la de inicio."),
+            )
+
+        avg_ccv = cleaned_data.get("avg_ccv") or 0
+        peak_viewers = cleaned_data.get("peak_viewers") or 0
+        if avg_ccv > peak_viewers:
+            self.add_error(
+                "peak_viewers",
+                _(
+                    "El pico de espectadores debe ser mayor o igual "
+                    "a la media de espectadores (CCV).",
+                ),
+            )
+
+        is_sponsored = cleaned_data.get("is_sponsored")
+        sponsorship_revenue = cleaned_data.get("sponsorship_revenue") or Decimal("0.00")
+        if is_sponsored and sponsorship_revenue <= Decimal("0.00"):
+            self.add_error(
+                "sponsorship_revenue",
+                _(
+                    "Una sesión marcada como patrocinada debe contar con "
+                    "un ingreso de patrocinio mayor a cero.",
+                ),
+            )
+        return cleaned_data
+
 
 class SessionSegmentForm(forms.ModelForm):
     class Meta:
@@ -112,3 +148,27 @@ class SessionSegmentForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.helper = FormHelper()
         self.helper.form_tag = False
+
+    def clean(self):
+        cleaned_data = super().clean()
+        avg_ccv = cleaned_data.get("avg_ccv") or 0
+        peak_viewers = cleaned_data.get("peak_viewers") or 0
+        if avg_ccv > peak_viewers:
+            self.add_error(
+                "peak_viewers",
+                _("El pico de espectadores debe ser mayor o igual al CCV promedio."),
+            )
+
+        session = cleaned_data.get("session")
+        start_offset = cleaned_data.get("start_offset_seconds") or 0
+        duration = cleaned_data.get("duration_seconds") or 0
+        if session and session.duration_seconds > 0:
+            if start_offset + duration > session.duration_seconds:
+                self.add_error(
+                    "duration_seconds",
+                    _(
+                        "El rango del segmento no puede exceder "
+                        "la duración total del stream.",
+                    ),
+                )
+        return cleaned_data

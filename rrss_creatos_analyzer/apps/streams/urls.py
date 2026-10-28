@@ -1,5 +1,6 @@
 from django.urls import path
 
+from .views import CategoryPerformanceView
 from .views import SessionSegmentCreateView
 from .views import SessionSegmentDeleteView
 from .views import SessionSegmentDetailView
@@ -16,6 +17,11 @@ app_name = "streams"
 urlpatterns = [
     path("", StreamingSessionListView.as_view(), name="session_list"),
     path("create/", StreamingSessionCreateView.as_view(), name="session_create"),
+    path(
+        "category-performance/",
+        CategoryPerformanceView.as_view(),
+        name="category_performance",
+    ),
     path("<int:pk>/", StreamingSessionDetailView.as_view(), name="session_detail"),
     path("<int:pk>/edit/", StreamingSessionUpdateView.as_view(), name="session_update"),
     path(

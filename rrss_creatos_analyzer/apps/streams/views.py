@@ -6,10 +6,12 @@ from django.urls import reverse_lazy
 from django.views.generic import CreateView
 from django.views.generic import DeleteView
 from django.views.generic import DetailView
+from django.views.generic import TemplateView
 from django.views.generic import UpdateView
 from django_filters.views import FilterView
 from django_tables2 import SingleTableMixin
 
+from rrss_creatos_analyzer.apps.core.exceptions import BusinessLogicError
 from rrss_creatos_analyzer.apps.core.mixins import CrudContextMixin
 
 from .filters import SessionSegmentFilter
@@ -40,8 +42,8 @@ class StreamingSessionListView(
     filterset_class = StreamingSessionFilter
     template_name = "streams/session_list.html"
     paginate_by = 25
-    page_title = "Sesiones de Streaming en Vivo"
-    page_subtitle = "Registro de transmisiones, métricas de audiencia e ingresos"
+    page_title = "Sesiones de Streaming"
+    page_subtitle = "Monitoreo de transmisiones en vivo, audiencia y monetización"
     create_url_name = "streams:session_create"
 
     def get_queryset(self):
@@ -57,7 +59,7 @@ class StreamingSessionDetailView(
     model = StreamingSession
     permission_required = "streams.view_streamingsession"
     template_name = "streams/session_detail.html"
-    page_title = "Detalle de Sesión de Streaming"
+    page_title = "Detalle de Sesión"
     list_url_name = "streams:session_list"
     update_url_name = "streams:session_update"
     delete_url_name = "streams:session_delete"
@@ -83,7 +85,11 @@ class StreamingSessionCreateView(
     def form_valid(self, form):
         data = form.cleaned_data.copy()
         tags = data.pop("tags", None)
-        self.object = StreamingSessionService.save_session(tags=tags, **data)
+        try:
+            self.object = StreamingSessionService.save_session(tags=tags, **data)
+        except BusinessLogicError as exc:
+            form.add_error(None, str(exc))
+            return self.form_invalid(form)
         messages.success(self.request, "Sesión de streaming registrada exitosamente.")
         return redirect(self.success_url)
 
@@ -105,11 +111,15 @@ class StreamingSessionUpdateView(
     def form_valid(self, form):
         data = form.cleaned_data.copy()
         tags = data.pop("tags", None)
-        self.object = StreamingSessionService.save_session(
-            instance=self.get_object(),
-            tags=tags,
-            **data,
-        )
+        try:
+            self.object = StreamingSessionService.save_session(
+                instance=self.get_object(),
+                tags=tags,
+                **data,
+            )
+        except BusinessLogicError as exc:
+            form.add_error(None, str(exc))
+            return self.form_invalid(form)
         messages.success(self.request, "Sesión de streaming actualizada exitosamente.")
         return redirect(self.success_url)
 
@@ -186,7 +196,11 @@ class SessionSegmentCreateView(
     list_url_name = "streams:segment_list"
 
     def form_valid(self, form):
-        self.object = SessionSegmentService.save_segment(**form.cleaned_data)
+        try:
+            self.object = SessionSegmentService.save_segment(**form.cleaned_data)
+        except BusinessLogicError as exc:
+            form.add_error(None, str(exc))
+            return self.form_invalid(form)
         messages.success(self.request, "Segmento creado exitosamente.")
         return redirect(self.success_url)
 
@@ -206,10 +220,14 @@ class SessionSegmentUpdateView(
     list_url_name = "streams:segment_list"
 
     def form_valid(self, form):
-        self.object = SessionSegmentService.save_segment(
-            instance=self.get_object(),
-            **form.cleaned_data,
-        )
+        try:
+            self.object = SessionSegmentService.save_segment(
+                instance=self.get_object(),
+                **form.cleaned_data,
+            )
+        except BusinessLogicError as exc:
+            form.add_error(None, str(exc))
+            return self.form_invalid(form)
         messages.success(self.request, "Segmento actualizado exitosamente.")
         return redirect(self.success_url)
 
@@ -230,3 +248,33 @@ class SessionSegmentDeleteView(
         SessionSegmentService.delete_segment(instance=self.get_object())
         messages.success(self.request, "Segmento eliminado.")
         return redirect(self.success_url)
+
+
+# ==== CATEGORY PERFORMANCE VIEW (CU-STR-05) ====
+class CategoryPerformanceView(
+    LoginRequiredMixin,
+    PermissionRequiredMixin,
+    CrudContextMixin,
+    TemplateView,
+):
+    template_name = "streams/category_performance.html"
+    permission_required = "streams.view_streamingsession"
+    page_title = "Rendimiento Comparativo por Categoría"
+    page_subtitle = "Análisis de horas transmitidas, audiencia CCV e ingresos por juego"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        creator_id = self.request.GET.get("creator")
+        platform = self.request.GET.get("platform")
+        start_date = self.request.GET.get("start_date")
+        end_date = self.request.GET.get("end_date")
+
+        stats = StreamingSessionSelector.get_category_performance_stats(
+            user=self.request.user,
+            creator_id=int(creator_id) if creator_id and creator_id.isdigit() else None,
+            platform=platform,
+            start_date=start_date or None,
+            end_date=end_date or None,
+        )
+        context["category_stats"] = stats
+        return context

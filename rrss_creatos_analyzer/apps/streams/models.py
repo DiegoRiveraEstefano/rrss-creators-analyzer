@@ -1,6 +1,7 @@
 from decimal import Decimal
 
 from auditlog.registry import auditlog
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Q
 from django.urls import reverse
@@ -155,10 +156,23 @@ class StreamingSession(BaseModel):
         ]
         constraints = [
             models.CheckConstraint(
-                condition=Q(duration_seconds__gte=0)
-                & Q(peak_viewers__gte=0)
-                & Q(avg_ccv__gte=0),
+                condition=(
+                    Q(duration_seconds__gte=0)
+                    & Q(peak_viewers__gte=0)
+                    & Q(avg_ccv__gte=0)
+                    & Q(ad_revenue__gte=0)
+                    & Q(subs_revenue__gte=0)
+                    & Q(donations_revenue__gte=0)
+                    & Q(bits_or_gifts_revenue__gte=0)
+                    & Q(sponsorship_revenue__gte=0)
+                    & Q(total_earnings__gte=0)
+                ),
                 name="chk_stream_metrics_non_negative",
+            ),
+            models.UniqueConstraint(
+                fields=["creator", "platform", "external_stream_id"],
+                condition=Q(external_stream_id__gt=""),
+                name="uq_stream_creator_platform_ext_id",
             ),
         ]
 
@@ -168,6 +182,35 @@ class StreamingSession(BaseModel):
 
     def get_absolute_url(self) -> str:
         return reverse("streams:session_detail", kwargs={"pk": self.pk})
+
+    def clean(self) -> None:
+        super().clean()
+        if self.streamed_at and self.ended_at and self.ended_at < self.streamed_at:
+            raise ValidationError(
+                {
+                    "ended_at": _(
+                        "La fecha/hora de fin no puede ser anterior a la de inicio.",
+                    ),
+                },
+            )
+        if self.avg_ccv > self.peak_viewers:
+            raise ValidationError(
+                {
+                    "peak_viewers": _(
+                        "El pico de espectadores debe ser mayor o igual "
+                        "a la media de espectadores (CCV).",
+                    ),
+                },
+            )
+        if self.is_sponsored and self.sponsorship_revenue <= Decimal("0.00"):
+            raise ValidationError(
+                {
+                    "sponsorship_revenue": _(
+                        "Una sesión marcada como patrocinada debe contar con "
+                        "un ingreso de patrocinio mayor a cero.",
+                    ),
+                },
+            )
 
 
 @auditlog.register()
@@ -191,9 +234,45 @@ class SessionSegment(BaseModel):
         verbose_name = _("Segmento de Sesión")
         verbose_name_plural = _("Segmentos de Sesión")
         ordering = ["session", "start_offset_seconds"]
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    Q(duration_seconds__gte=0)
+                    & Q(start_offset_seconds__gte=0)
+                    & Q(avg_ccv__gte=0)
+                    & Q(peak_viewers__gte=0)
+                ),
+                name="chk_segment_metrics_non_negative",
+            ),
+        ]
 
     def __str__(self) -> str:
         return f"{self.session.session_title} - {self.game_or_category}"
 
     def get_absolute_url(self) -> str:
         return reverse("streams:segment_detail", kwargs={"pk": self.pk})
+
+    def clean(self) -> None:
+        super().clean()
+        if self.avg_ccv > self.peak_viewers:
+            raise ValidationError(
+                {
+                    "peak_viewers": _(
+                        "El pico de espectadores debe ser mayor o igual "
+                        "al CCV promedio.",
+                    ),
+                },
+            )
+        if (
+            self.session_id
+            and self.session.duration_seconds > 0
+            and self.start_offset_seconds + self.duration_seconds
+            > self.session.duration_seconds
+        ):
+            raise ValidationError(
+                {
+                    "duration_seconds": _(
+                        "El rango del segmento excede la duración total de la sesión.",
+                    ),
+                },
+            )
