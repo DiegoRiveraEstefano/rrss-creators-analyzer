@@ -6,6 +6,7 @@ from django.urls import reverse_lazy
 from django.views.generic import CreateView
 from django.views.generic import DeleteView
 from django.views.generic import DetailView
+from django.views.generic import TemplateView
 from django.views.generic import UpdateView
 from django_filters.views import FilterView
 from django_tables2 import SingleTableMixin
@@ -90,7 +91,11 @@ class VideoCreateView(
     def form_valid(self, form):
         data = form.cleaned_data.copy()
         tags = data.pop("tags", None)
-        self.object = VideoService.save_video(tags=tags, **data)
+        try:
+            self.object = VideoService.save_video(tags=tags, **data)
+        except BusinessLogicError as exc:
+            form.add_error(None, str(exc))
+            return self.form_invalid(form)
         messages.success(self.request, "Video registrado exitosamente.")
         return redirect(self.success_url)
 
@@ -112,11 +117,15 @@ class VideoUpdateView(
     def form_valid(self, form):
         data = form.cleaned_data.copy()
         tags = data.pop("tags", None)
-        self.object = VideoService.save_video(
-            instance=self.get_object(),
-            tags=tags,
-            **data,
-        )
+        try:
+            self.object = VideoService.save_video(
+                instance=self.get_object(),
+                tags=tags,
+                **data,
+            )
+        except BusinessLogicError as exc:
+            form.add_error(None, str(exc))
+            return self.form_invalid(form)
         messages.success(self.request, "Video actualizado exitosamente.")
         return redirect(self.success_url)
 
@@ -190,12 +199,16 @@ class VideoPublicationCreateView(
     form_class = VideoPublicationForm
     template_name = "videos/publication_form.html"
     success_url = reverse_lazy("videos:publication_list")
-    page_title = "Registrar Publicación de Video"
+    page_title = "Registrar Publicación"
     list_url_name = "videos:publication_list"
 
     def form_valid(self, form):
-        self.object = VideoPublicationService.save_publication(**form.cleaned_data)
-        messages.success(self.request, "Publicación creada exitosamente.")
+        try:
+            self.object = VideoPublicationService.save_publication(**form.cleaned_data)
+        except BusinessLogicError as exc:
+            form.add_error(None, str(exc))
+            return self.form_invalid(form)
+        messages.success(self.request, "Publicación registrada exitosamente.")
         return redirect(self.success_url)
 
 
@@ -214,10 +227,14 @@ class VideoPublicationUpdateView(
     list_url_name = "videos:publication_list"
 
     def form_valid(self, form):
-        self.object = VideoPublicationService.save_publication(
-            instance=self.get_object(),
-            **form.cleaned_data,
-        )
+        try:
+            self.object = VideoPublicationService.save_publication(
+                instance=self.get_object(),
+                **form.cleaned_data,
+            )
+        except BusinessLogicError as exc:
+            form.add_error(None, str(exc))
+            return self.form_invalid(form)
         messages.success(self.request, "Publicación actualizada exitosamente.")
         return redirect(self.success_url)
 
@@ -349,3 +366,33 @@ class VideoRelationDeleteView(
         VideoRelationService.delete_relation(instance=self.get_object())
         messages.success(self.request, "Relación eliminada.")
         return redirect(self.success_url)
+
+
+# ==== PROFITABILITY AUDIT VIEW (CU-VID-07) ====
+class VideoProfitabilityAuditView(
+    LoginRequiredMixin,
+    PermissionRequiredMixin,
+    CrudContextMixin,
+    TemplateView,
+):
+    template_name = "videos/profitability_audit.html"
+    permission_required = "videos.view_production_costs"
+    page_title = "Auditoría de Rentabilidad y ROI"
+    page_subtitle = "Comparativa entre costes de producción e ingresos por video"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        creator_id = self.request.GET.get("creator")
+        content_format = self.request.GET.get("format")
+        start_date = self.request.GET.get("start_date")
+        end_date = self.request.GET.get("end_date")
+
+        audit_data = VideoSelector.get_profitability_audit(
+            user=self.request.user,
+            creator_id=int(creator_id) if creator_id and creator_id.isdigit() else None,
+            content_format=content_format or None,
+            start_date=start_date or None,
+            end_date=end_date or None,
+        )
+        context["audit_data"] = audit_data
+        return context

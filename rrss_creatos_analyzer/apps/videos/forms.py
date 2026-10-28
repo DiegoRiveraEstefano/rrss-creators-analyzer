@@ -3,6 +3,10 @@ from crispy_forms.layout import Column
 from crispy_forms.layout import Layout
 from crispy_forms.layout import Row
 from django import forms
+from django.utils.translation import gettext_lazy as _
+
+from rrss_creatos_analyzer.apps.core.choices import PublicationStatus
+from rrss_creatos_analyzer.apps.core.choices import VideoStatus
 
 from .models import Video
 from .models import VideoPublication
@@ -64,6 +68,26 @@ class VideoForm(forms.ModelForm):
             "description",
         )
 
+    def clean(self):
+        cleaned_data = super().clean()
+        status = cleaned_data.get("status")
+        if status == VideoStatus.PUBLISHED:
+            if (
+                not self.instance.pk
+                or not self.instance.publications.filter(
+                    status=PublicationStatus.PUBLISHED,
+                ).exists()
+            ):
+                self.add_error(
+                    "status",
+                    _(
+                        "Un video no puede marcarse en estado 'published' "
+                        "a menos que exista al menos una publicación vinculada "
+                        "en estado 'published'.",
+                    ),
+                )
+        return cleaned_data
+
 
 class VideoPublicationForm(forms.ModelForm):
     class Meta:
@@ -121,3 +145,33 @@ class VideoRelationForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.helper = FormHelper()
         self.helper.form_tag = False
+
+    def clean(self):
+        cleaned_data = super().clean()
+        source_video = cleaned_data.get("source_video")
+        target_video = cleaned_data.get("target_video")
+        target_session = cleaned_data.get("target_session")
+
+        if not target_video and not target_session:
+            self.add_error(
+                None,
+                _(
+                    "Debe seleccionar al menos un Video Relacionado "
+                    "o una Sesión de Streaming de destino.",
+                ),
+            )
+
+        if source_video and target_video and source_video == target_video:
+            self.add_error(
+                "target_video",
+                _("Un video no puede relacionarse consigo mismo."),
+            )
+
+        start = cleaned_data.get("timestamp_start_seconds")
+        end = cleaned_data.get("timestamp_end_seconds")
+        if start is not None and end is not None and start > end:
+            self.add_error(
+                "timestamp_end_seconds",
+                _("El segundo de fin no puede ser menor al segundo de inicio."),
+            )
+        return cleaned_data

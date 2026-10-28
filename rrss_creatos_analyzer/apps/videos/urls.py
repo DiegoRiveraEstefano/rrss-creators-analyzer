@@ -4,6 +4,7 @@ from .views import VideoCreateView
 from .views import VideoDeleteView
 from .views import VideoDetailView
 from .views import VideoListView
+from .views import VideoProfitabilityAuditView
 from .views import VideoPublicationCreateView
 from .views import VideoPublicationDeleteView
 from .views import VideoPublicationDetailView
@@ -21,6 +22,11 @@ app_name = "videos"
 urlpatterns = [
     path("", VideoListView.as_view(), name="video_list"),
     path("create/", VideoCreateView.as_view(), name="video_create"),
+    path(
+        "profitability-audit/",
+        VideoProfitabilityAuditView.as_view(),
+        name="profitability_audit",
+    ),
     path("<int:pk>/", VideoDetailView.as_view(), name="video_detail"),
     path("<int:pk>/edit/", VideoUpdateView.as_view(), name="video_update"),
     path("<int:pk>/delete/", VideoDeleteView.as_view(), name="video_delete"),

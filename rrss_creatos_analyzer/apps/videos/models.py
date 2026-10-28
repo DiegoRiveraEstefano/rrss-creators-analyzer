@@ -2,6 +2,7 @@ from decimal import Decimal
 
 from auditlog.registry import auditlog
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Q
 from django.urls import reverse
@@ -86,7 +87,7 @@ class Video(BaseModel, TitleDescriptionModelMixin):
         _("Estado Editorial"),
         max_length=20,
         choices=VideoStatus.choices,
-        default=VideoStatus.PUBLISHED,
+        default=VideoStatus.IDEA,
         db_index=True,
     )
     target_release_date = models.DateField(
@@ -119,7 +120,11 @@ class Video(BaseModel, TitleDescriptionModelMixin):
         ]
         constraints = [
             models.CheckConstraint(
-                condition=Q(duration_seconds__gte=0) & Q(production_cost__gte=0),
+                condition=Q(duration_seconds__gte=0)
+                & Q(production_cost__gte=0)
+                & Q(editing_cost__gte=0)
+                & Q(thumbnail_cost__gte=0)
+                & Q(total_production_cost__gte=0),
                 name="chk_video_costs_non_negative",
             ),
         ]
@@ -129,6 +134,27 @@ class Video(BaseModel, TitleDescriptionModelMixin):
 
     def get_absolute_url(self) -> str:
         return reverse("videos:video_detail", kwargs={"pk": self.pk})
+
+    @property
+    def net_profit(self) -> Decimal:
+        tot_rev = self.publications.aggregate(tot=models.Sum("estimated_revenue"))[
+            "tot"
+        ] or Decimal("0.00")
+        return tot_rev - self.total_production_cost
+
+    @property
+    def roi_percentage(self) -> Decimal | None:
+        if not self.total_production_cost or self.total_production_cost <= Decimal(
+            "0.00",
+        ):
+            return None
+        tot_rev = self.publications.aggregate(tot=models.Sum("estimated_revenue"))[
+            "tot"
+        ] or Decimal("0.00")
+        roi = (
+            (tot_rev - self.total_production_cost) / self.total_production_cost
+        ) * Decimal("100.0")
+        return roi.quantize(Decimal("0.01"))
 
 
 @auditlog.register()
@@ -275,6 +301,18 @@ class VideoPublication(BaseModel):
     def get_absolute_url(self) -> str:
         return reverse("videos:publication_detail", kwargs={"pk": self.pk})
 
+    @property
+    def net_profit(self) -> Decimal:
+        return self.estimated_revenue - self.video.total_production_cost
+
+    @property
+    def roi_percentage(self) -> Decimal | None:
+        cost = self.video.total_production_cost
+        if not cost or cost <= Decimal("0.00"):
+            return None
+        roi = ((self.estimated_revenue - cost) / cost) * Decimal("100.0")
+        return roi.quantize(Decimal("0.01"))
+
 
 @auditlog.register()
 class VideoRelation(BaseModel):
@@ -328,6 +366,20 @@ class VideoRelation(BaseModel):
                 | Q(target_session__isnull=False),
                 name="chk_vrel_target_present",
             ),
+            models.CheckConstraint(
+                condition=~Q(source_video=models.F("target_video")),
+                name="chk_vrel_no_self_relation",
+            ),
+            models.UniqueConstraint(
+                fields=["source_video", "target_video", "relation_type"],
+                condition=Q(target_video__isnull=False),
+                name="uq_video_relation_target_video",
+            ),
+            models.UniqueConstraint(
+                fields=["source_video", "target_session", "relation_type"],
+                condition=Q(target_session__isnull=False),
+                name="uq_video_relation_target_session",
+            ),
         ]
 
     def __str__(self) -> str:
@@ -337,3 +389,37 @@ class VideoRelation(BaseModel):
 
     def get_absolute_url(self) -> str:
         return reverse("videos:relation_detail", kwargs={"pk": self.pk})
+
+    def clean(self) -> None:
+        super().clean()
+        if (
+            self.source_video_id
+            and self.target_video_id
+            and self.source_video_id == self.target_video_id
+        ):
+            raise ValidationError(
+                {
+                    "target_video": _(
+                        "Un video no puede relacionarse consigo mismo.",
+                    ),
+                },
+            )
+        if not self.target_video_id and not self.target_session_id:
+            raise ValidationError(
+                _(
+                    "Debe seleccionar al menos un Video o una Sesión "
+                    "de Streaming de destino.",
+                ),
+            )
+        if (
+            self.timestamp_start_seconds is not None
+            and self.timestamp_end_seconds is not None
+            and self.timestamp_start_seconds > self.timestamp_end_seconds
+        ):
+            raise ValidationError(
+                {
+                    "timestamp_end_seconds": _(
+                        "El segundo de fin no puede ser menor al segundo de inicio.",
+                    ),
+                },
+            )
