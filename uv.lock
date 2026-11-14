@@ -900,6 +900,24 @@ wheels = [
 ]
 
 [[package]]
+name = "django-ranged-response"
+version = "0.2.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "django" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/70/e3/9372fcdca8e9c3205e7979528ccd1a14354a9a24d38efff11c1846ff8bf1/django-ranged-response-0.2.0.tar.gz", hash = "sha256:f71fff352a37316b9bead717fc76e4ddd6c9b99c4680cdf4783b9755af1cf985", size = 3021, upload-time = "2017-07-18T09:20:27.603Z" }
+
+[[package]]
+name = "django-ratelimit"
+version = "4.1.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/6f/8f/94038fe739b095aca3e4708ecc8a4e77f1fcfd87bed5d6baff43d4c80bc4/django-ratelimit-4.1.0.tar.gz", hash = "sha256:555943b283045b917ad59f196829530d63be2a39adb72788d985b90c81ba808b", size = 11551, upload-time = "2023-07-24T20:34:32.374Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/fb/78/2c59b30cd8bc8068d02349acb6aeed5c4e05eb01cdf2107ccd76f2e81487/django_ratelimit-4.1.0-py2.py3-none-any.whl", hash = "sha256:d047a31cf94d83ef1465d7543ca66c6fc16695559b5f8d814d1b51df15110b92", size = 11608, upload-time = "2023-07-24T20:34:31.362Z" },
+]
+
+[[package]]
 name = "django-redis"
 version = "7.0.0"
 source = { registry = "https://pypi.org/simple" }
@@ -910,6 +928,20 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/fb/78/203a0cdc0f1c083a5407d01f77b58099a120bb8a5a04562f56a9bb341314/django_redis-7.0.0.tar.gz", hash = "sha256:e48491c862f4350b0747ceb1016700686fb93c4f4e0fb9c490fe6c6658ffd933", size = 64601, upload-time = "2026-06-02T14:17:48.819Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/7e/9f/09cdb9a1eebe8533b02a7694ca787acfc1e4d93b5b6175ff99366d4e6d64/django_redis-7.0.0-py3-none-any.whl", hash = "sha256:4b23aa6e0cd0937bb1242e9a463809e6004de3ca2150f34e986306bb6220d688", size = 38932, upload-time = "2026-06-02T14:17:47.281Z" },
+]
+
+[[package]]
+name = "django-simple-captcha"
+version = "0.7.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "django" },
+    { name = "django-ranged-response" },
+    { name = "pillow" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/5d/13/ce4ec095305ab1c78db0f728359cc47d3f3c1c3f706f2240dc125fba5b4d/django_simple_captcha-0.7.0.tar.gz", hash = "sha256:f2a9178d04667ebc32481ffbfbe405ec1ae4c2d30f4d2975a7e0a8de26261c1f", size = 127439, upload-time = "2026-07-30T08:38:48.532Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/6d/b8/70be62610237fb307acb24b0946ff77f29e1cab58c840cfac4047a33ca96/django_simple_captcha-0.7.0-py2.py3-none-any.whl", hash = "sha256:44ee1fbdcfba2a7ab870ebf57c19d9dd8e81614b3afafb2e5689044bab9c9e0e", size = 95300, upload-time = "2026-07-30T08:38:46.29Z" },
 ]
 
 [[package]]
@@ -2096,7 +2128,9 @@ dependencies = [
     { name = "django-formtools" },
     { name = "django-import-export" },
     { name = "django-model-utils" },
+    { name = "django-ratelimit" },
     { name = "django-redis" },
+    { name = "django-simple-captcha" },
     { name = "django-simple-history" },
     { name = "django-tables2" },
     { name = "django-taggit" },
@@ -2161,7 +2195,9 @@ requires-dist = [
     { name = "django-formtools", specifier = ">=2.7" },
     { name = "django-import-export", specifier = ">=4.4.3" },
     { name = "django-model-utils", specifier = "==5.0.0" },
+    { name = "django-ratelimit", specifier = ">=4.1.0" },
     { name = "django-redis", specifier = "==7.0.0" },
+    { name = "django-simple-captcha", specifier = ">=0.7.0" },
     { name = "django-simple-history", specifier = ">=3.13.0" },
     { name = "django-tables2", specifier = ">=3.0.1" },
     { name = "django-taggit", specifier = ">=6.1.0" },

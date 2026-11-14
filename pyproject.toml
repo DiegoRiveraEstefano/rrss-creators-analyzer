@@ -1,7 +1,7 @@
 [project]
 name = "rrss_creatos_analyzer"
 version = "0.1.0"
-description = "Behold My Awesome Project!"
+description = "Single-company creator & streamer analytics, operations, and financial settlements platform."
 readme = "README.md"
 license = { text = "GPLv3" }
 authors = [
@@ -33,7 +33,9 @@ dependencies = [
   "django-formtools>=2.7",
   "django-import-export>=4.4.3",
   "django-model-utils==5.0.0",
+  "django-ratelimit>=4.1.0",
   "django-redis==7.0.0",
+  "django-simple-captcha>=0.7.0",
   "django-simple-history>=3.13.0",
   "django-tables2>=3.0.1",
   "django-taggit>=6.1.0",

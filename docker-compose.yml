@@ -5,15 +5,15 @@ services:
     restart: unless-stopped
     env_file: ".env"
     environment:
-      - POSTGRES_DB=${POSTGRES_DB:-rrss_creatos_analyzer}
-      - POSTGRES_USER=${POSTGRES_USER:-debug}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-debug}
+      - POSTGRES_DB=${POSTGRES_DB:-rrss_creators_analyzer}
+      - POSTGRES_USER=${POSTGRES_USER:-rrss_user}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-change-me-db-password}
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-debug} -d ${POSTGRES_DB:-rrss_creatos_analyzer}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-rrss_user} -d ${POSTGRES_DB:-rrss_creators_analyzer}"]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -45,11 +45,15 @@ services:
       - "8000:8000"
     environment:
       - DJANGO_SETTINGS_MODULE=config.settings.production
-      - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY:-o0leIAkogjYB3XEZYQH5zMsgpZSjdK2iukGFtId7hN9hVL9ejkIDfm3FWE1NbPr4}
+      - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY:-change-me-in-production}
       - DJANGO_ALLOWED_HOSTS=${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,0.0.0.0}
-      - DJANGO_ADMIN_URL=admin/
-      - DJANGO_SECURE_SSL_REDIRECT=False
-      - DATABASE_URL=postgres://${POSTGRES_USER:-debug}:${POSTGRES_PASSWORD:-debug}@postgres:5432/${POSTGRES_DB:-rrss_creatos_analyzer}
+      - DJANGO_ADMIN_URL=${DJANGO_ADMIN_URL:-admin/}
+      - DJANGO_SECURE_SSL_REDIRECT=${DJANGO_SECURE_SSL_REDIRECT:-False}
+      - DEMO_MODE=${DEMO_MODE:-False}
+      - DEMO_DATA_RETENTION_DAYS=${DEMO_DATA_RETENTION_DAYS:-7}
+      - CAPTCHA_ENABLED=${CAPTCHA_ENABLED:-True}
+      - RATELIMIT_ENABLE=${RATELIMIT_ENABLE:-True}
+      - DATABASE_URL=postgres://${POSTGRES_USER:-rrss_user}:${POSTGRES_PASSWORD:-change-me-db-password}@postgres:5432/${POSTGRES_DB:-rrss_creators_analyzer}
       - REDIS_URL=redis://redis:6379/0
       - WEB_CONCURRENCY=2
     volumes:
@@ -71,9 +75,11 @@ services:
     env_file: ".env"
     environment:
       - DJANGO_SETTINGS_MODULE=config.settings.production
-      - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY:-o0leIAkogjYB3XEZYQH5zMsgpZSjdK2iukGFtId7hN9hVL9ejkIDfm3FWE1NbPr4}
-      - DJANGO_ADMIN_URL=admin/
-      - DATABASE_URL=postgres://${POSTGRES_USER:-debug}:${POSTGRES_PASSWORD:-debug}@postgres:5432/${POSTGRES_DB:-rrss_creatos_analyzer}
+      - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY:-change-me-in-production}
+      - DJANGO_ADMIN_URL=${DJANGO_ADMIN_URL:-admin/}
+      - DEMO_MODE=${DEMO_MODE:-False}
+      - DEMO_DATA_RETENTION_DAYS=${DEMO_DATA_RETENTION_DAYS:-7}
+      - DATABASE_URL=postgres://${POSTGRES_USER:-rrss_user}:${POSTGRES_PASSWORD:-change-me-db-password}@postgres:5432/${POSTGRES_DB:-rrss_creators_analyzer}
       - REDIS_URL=redis://redis:6379/0
       - CELERY_WORKER_CONCURRENCY=2
       - CELERY_LOGLEVEL=INFO
@@ -98,9 +104,11 @@ services:
     env_file: ".env"
     environment:
       - DJANGO_SETTINGS_MODULE=config.settings.production
-      - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY:-o0leIAkogjYB3XEZYQH5zMsgpZSjdK2iukGFtId7hN9hVL9ejkIDfm3FWE1NbPr4}
-      - DJANGO_ADMIN_URL=admin/
-      - DATABASE_URL=postgres://${POSTGRES_USER:-debug}:${POSTGRES_PASSWORD:-debug}@postgres:5432/${POSTGRES_DB:-rrss_creatos_analyzer}
+      - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY:-change-me-in-production}
+      - DJANGO_ADMIN_URL=${DJANGO_ADMIN_URL:-admin/}
+      - DEMO_MODE=${DEMO_MODE:-False}
+      - DEMO_DATA_RETENTION_DAYS=${DEMO_DATA_RETENTION_DAYS:-7}
+      - DATABASE_URL=postgres://${POSTGRES_USER:-rrss_user}:${POSTGRES_PASSWORD:-change-me-db-password}@postgres:5432/${POSTGRES_DB:-rrss_creators_analyzer}
       - REDIS_URL=redis://redis:6379/0
       - CELERY_LOGLEVEL=INFO
     volumes:
