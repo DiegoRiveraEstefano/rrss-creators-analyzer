@@ -5,11 +5,13 @@ from typing import TYPE_CHECKING
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.messages.views import SuccessMessageMixin
 from django.urls import reverse
+from django.utils.decorators import method_decorator
 from django.utils.translation import gettext_lazy as _
 from django.views.generic import DetailView
 from django.views.generic import RedirectView
 from django.views.generic import UpdateView
 from django_filters.views import FilterView
+from django_ratelimit.decorators import ratelimit
 from django_tables2 import SingleTableMixin
 
 from rrss_creatos_analyzer.apps.core.mixins import CrudContextMixin
@@ -44,6 +46,10 @@ class UserDetailView(LoginRequiredMixin, DetailView):
 user_detail_view = UserDetailView.as_view()
 
 
+@method_decorator(
+    ratelimit(key="user_or_ip", rate="20/m", method="POST", block=True),
+    name="dispatch",
+)
 class UserUpdateView(LoginRequiredMixin, SuccessMessageMixin, UpdateView):
     model = User
     fields = ["name"]

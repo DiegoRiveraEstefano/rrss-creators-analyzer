@@ -3,11 +3,13 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.mixins import PermissionRequiredMixin
 from django.shortcuts import redirect
 from django.urls import reverse_lazy
+from django.utils.decorators import method_decorator
 from django.views.generic import CreateView
 from django.views.generic import DeleteView
 from django.views.generic import DetailView
 from django.views.generic import UpdateView
 from django_filters.views import FilterView
+from django_ratelimit.decorators import ratelimit
 from django_tables2 import SingleTableMixin
 
 from rrss_creatos_analyzer.apps.core.mixins import CrudContextMixin
@@ -55,6 +57,10 @@ class ExportJobDetailView(
     delete_url_name = "exports:export_delete"
 
 
+@method_decorator(
+    ratelimit(key="user_or_ip", rate="10/m", method="POST", block=True),
+    name="dispatch",
+)
 class ExportJobCreateView(
     LoginRequiredMixin,
     PermissionRequiredMixin,

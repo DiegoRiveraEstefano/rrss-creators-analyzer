@@ -251,7 +251,7 @@
             <p class="lead text-body-secondary mb-4">
               {% translate "Sistema centralizado para el seguimiento de streamers y creadores de contenido, métricas de sesiones en vivo, publicaciones de video, contratos de agencia, alertas de canal y liquidaciones financieras." %}
             </p>
-            <div class="d-flex flex-wrap gap-3">
+            <div class="d-flex flex-wrap gap-3 mb-4">
               <a href="{% url 'account_login' %}" class="btn btn-primary btn-lg px-4">
                 {% translate "Iniciar Sesión" %}
               </a>
@@ -264,6 +264,30 @@
                 {% translate "Conocer más" %} →
               </a>
             </div>
+            {% if DEMO_MODE %}
+              <article class="card border-0 shadow-sm">
+                <div class="card-body p-4">
+                  <h2 class="h6 fw-bold text-uppercase text-body-secondary mb-3">
+                    {% translate "Quick Demo Login (1-Click by Role)" %}
+                  </h2>
+                  <div class="row g-2">
+                    {% for item in DEMO_QUICK_ROLES %}
+                      <div class="col-sm-6">
+                        <form method="post" action="{% url 'demo_login' %}">
+                          {% csrf_token %}
+                          <input type="hidden" name="role" value="{{ item.role }}" />
+                          <button type="submit"
+                                  class="btn btn-outline-{{ item.badge_class }} w-100 text-start">
+                            <span class="fw-semibold d-block">{{ item.label }}</span>
+                            <span class="small text-body-secondary d-block">{{ item.summary }}</span>
+                          </button>
+                        </form>
+                      </div>
+                    {% endfor %}
+                  </div>
+                </div>
+              </article>
+            {% endif %}
           </div>
           <div class="col-lg-5">
             <article class="card border-0 shadow-sm">

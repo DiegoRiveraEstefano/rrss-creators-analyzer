@@ -5,6 +5,9 @@ import typing
 from allauth.account.adapter import DefaultAccountAdapter
 from allauth.socialaccount.adapter import DefaultSocialAccountAdapter
 from django.conf import settings
+from django.shortcuts import resolve_url
+
+from .services import UserService
 
 if typing.TYPE_CHECKING:
     from allauth.socialaccount.models import SocialLogin
@@ -16,6 +19,30 @@ if typing.TYPE_CHECKING:
 class AccountAdapter(DefaultAccountAdapter):
     def is_open_for_signup(self, request: HttpRequest) -> bool:
         return getattr(settings, "ACCOUNT_ALLOW_REGISTRATION", True)
+
+    def get_login_redirect_url(self, request: HttpRequest) -> str:
+        if getattr(settings, "DEMO_MODE", False):
+            return resolve_url("home")
+        return super().get_login_redirect_url(request)
+
+    def get_signup_redirect_url(self, request: HttpRequest) -> str:
+        if getattr(settings, "DEMO_MODE", False):
+            return resolve_url("home")
+        return super().get_signup_redirect_url(request)
+
+    def save_user(
+        self,
+        request: HttpRequest,
+        user: User,
+        form: typing.Any,
+        commit: bool = True,  # noqa: FBT001, FBT002
+    ) -> User:
+        user = super().save_user(request, user, form, commit=commit)
+        if commit:
+            cleaned_data = getattr(form, "cleaned_data", {})
+            role_name = cleaned_data.get("demo_role")
+            UserService.assign_default_role(user=user, role_name=role_name)
+        return user
 
 
 class SocialAccountAdapter(DefaultSocialAccountAdapter):
@@ -45,4 +72,14 @@ class SocialAccountAdapter(DefaultSocialAccountAdapter):
                 user.name = first_name
                 if last_name := data.get("last_name"):
                     user.name += f" {last_name}"
+        return user
+
+    def save_user(
+        self,
+        request: HttpRequest,
+        sociallogin: SocialLogin,
+        form: typing.Any = None,
+    ) -> User:
+        user = super().save_user(request, sociallogin, form=form)
+        UserService.assign_default_role(user=user)
         return user

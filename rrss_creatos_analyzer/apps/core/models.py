@@ -1,6 +1,8 @@
 from decimal import Decimal
 
 from auditlog.registry import auditlog
+from django.contrib.contenttypes.fields import GenericForeignKey
+from django.contrib.contenttypes.models import ContentType
 from django.db import models
 from django.db.models import F
 from django.db.models import Q
@@ -100,6 +102,40 @@ class CompanySettings(BaseModel):
         return reverse("core:settings_detail", kwargs={"pk": self.pk})
 
 
+class DemoBaselineRecord(models.Model):
+    """Registry of seeded baseline objects preserved during demo data purges."""
+
+    content_type = models.ForeignKey(
+        ContentType,
+        on_delete=models.CASCADE,
+        verbose_name=_("Tipo de Contenido"),
+    )
+    object_id = models.CharField(_("ID de Objeto"), max_length=64, db_index=True)
+    content_object = GenericForeignKey("content_type", "object_id")
+    created_at = models.DateTimeField(_("Fecha de Registro"), auto_now_add=True)
+
+    class Meta:
+        verbose_name = _("Registro Base de Demo")
+        verbose_name_plural = _("Registros Base de Demo")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["content_type", "object_id"],
+                name="uniq_demo_baseline_record",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=["content_type", "object_id"],
+                name="idx_demo_baseline_ct_obj",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return (
+            f"{self.content_type.app_label}.{self.content_type.model}:{self.object_id}"
+        )
+
+
 __all__ = [
     "ActiveBaseModel",
     "ActiveManager",
@@ -111,6 +147,7 @@ __all__ = [
     "BaseModel",
     "CompanySettings",
     "DateRangeModelMixin",
+    "DemoBaselineRecord",
     "MetadataModelMixin",
     "MonetaryModelMixin",
     "NameDescriptionModelMixin",
