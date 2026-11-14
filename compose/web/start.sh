@@ -6,6 +6,11 @@ set -o nounset
 echo "==> Running database migrations..."
 python manage.py migrate --noinput
 
+if [[ "${DEMO_MODE:-False}" == "True" || "${DEMO_MODE:-false}" == "true" ]]; then
+  echo "==> DEMO_MODE enabled: ensuring baseline demo data is seeded..."
+  python manage.py seed_demo_data --if-empty
+fi
+
 echo "==> Collecting static files..."
 python manage.py collectstatic --noinput
 
