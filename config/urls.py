@@ -10,11 +10,14 @@ from drf_spectacular.views import SpectacularSwaggerView
 from rest_framework.authtoken.views import obtain_auth_token
 
 from rrss_creatos_analyzer.apps.core.views import AboutView
+from rrss_creatos_analyzer.apps.core.views import DemoQuickLoginView
 from rrss_creatos_analyzer.apps.core.views import HomeDashboardView
 
 urlpatterns = [
     path("", HomeDashboardView.as_view(), name="home"),
     path("about/", AboutView.as_view(), name="about"),
+    path("demo/login/", DemoQuickLoginView.as_view(), name="demo_login"),
+    path("captcha/", include("captcha.urls")),
     # Django Admin, use {% url 'admin:index' %}
     path("admin/dj-cache-panel/", include("dj_cache_panel.urls")),
     path("admin/dj-urls-panel/", include("dj_urls_panel.urls")),

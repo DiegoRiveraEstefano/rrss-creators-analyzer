@@ -3,6 +3,7 @@ With these settings, tests run faster.
 """
 
 from .base import *  # noqa: F403
+from .base import REST_FRAMEWORK
 from .base import TEMPLATES
 from .base import env
 
@@ -15,6 +16,15 @@ SECRET_KEY = env(
 )
 # https://docs.djangoproject.com/en/dev/ref/settings/#test-runner
 TEST_RUNNER = "django.test.runner.DiscoverRunner"
+
+# CACHES
+# ------------------------------------------------------------------------------
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "test-cache",
+    },
+}
 
 # PASSWORDS
 # ------------------------------------------------------------------------------
@@ -34,5 +44,13 @@ TEMPLATES[0]["OPTIONS"]["debug"] = True  # type: ignore[index]
 # ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/dev/ref/settings/#media-url
 MEDIA_URL = "http://media.testserver/"
-# Your stuff...
+
+# DEMO, CAPTCHA & RATE LIMITING OVERRIDES FOR TESTS
 # ------------------------------------------------------------------------------
+CAPTCHA_ENABLED = False
+RATELIMIT_ENABLE = False
+ACCOUNT_RATE_LIMITS = {}
+REST_FRAMEWORK = {
+    **REST_FRAMEWORK,
+    "DEFAULT_THROTTLE_CLASSES": (),
+}

@@ -6,6 +6,7 @@ import ssl
 from pathlib import Path
 
 import environ
+from celery.schedules import crontab
 
 BASE_DIR = Path(__file__).resolve(strict=True).parent.parent.parent
 # rrss_creatos_analyzer/
@@ -36,6 +37,23 @@ USE_I18N = True
 USE_TZ = True
 # https://docs.djangoproject.com/en/dev/ref/settings/#locale-paths
 LOCALE_PATHS = [str(BASE_DIR / "locale")]
+
+# DEMO MODE & DATA RETENTION
+# ------------------------------------------------------------------------------
+DEMO_MODE = env.bool("DEMO_MODE", default=False)
+DEMO_DATA_RETENTION_DAYS = env.int("DEMO_DATA_RETENTION_DAYS", default=7)
+DEMO_DEFAULT_SIGNUP_GROUP = env.str("DEMO_DEFAULT_SIGNUP_GROUP", default="Manager")
+
+# CAPTCHA & RATE LIMITING
+# ------------------------------------------------------------------------------
+CAPTCHA_ENABLED = env.bool("CAPTCHA_ENABLED", default=DEMO_MODE)
+CAPTCHA_LENGTH = 5
+CAPTCHA_FONT_SIZE = 28
+CAPTCHA_TIMEOUT = 10
+RATELIMIT_ENABLE = env.bool("RATELIMIT_ENABLE", default=True)
+RATELIMIT_USE_CACHE = "default"
+DATA_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024  # 5 MB
+FILE_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024  # 5 MB
 
 # DATABASES
 # ------------------------------------------------------------------------------
@@ -107,6 +125,7 @@ THIRD_PARTY_APPS = [
     "allauth",
     "allauth.account",
     "allauth.socialaccount",
+    "captcha",
     "django_celery_beat",
     "rest_framework",
     "rest_framework.authtoken",
@@ -207,6 +226,8 @@ MIDDLEWARE = [
     "allauth.account.middleware.AccountMiddleware",
     "simple_history.middleware.HistoryRequestMiddleware",
     "auditlog.middleware.AuditlogMiddleware",
+    "rrss_creatos_analyzer.apps.core.middleware.RatelimitMiddleware",
+    "rrss_creatos_analyzer.apps.core.middleware.DemoProtectionMiddleware",
 ]
 
 # STATIC
@@ -253,6 +274,7 @@ TEMPLATES = [
                 "django.template.context_processors.tz",
                 "django.contrib.messages.context_processors.messages",
                 "rrss_creatos_analyzer.apps.users.context_processors.allauth_settings",
+                "rrss_creatos_analyzer.apps.core.context_processors.demo_context",
             ],
         },
     },
@@ -357,43 +379,62 @@ CELERY_TASK_SERIALIZER = "json"
 # https://docs.celeryq.dev/en/stable/userguide/configuration.html#std:setting-result_serializer
 CELERY_RESULT_SERIALIZER = "json"
 # https://docs.celeryq.dev/en/stable/userguide/configuration.html#task-time-limit
-# TODO: set to whatever value is adequate in your circumstances
 CELERY_TASK_TIME_LIMIT = 5 * 60
 # https://docs.celeryq.dev/en/stable/userguide/configuration.html#task-soft-time-limit
-# TODO: set to whatever value is adequate in your circumstances
 CELERY_TASK_SOFT_TIME_LIMIT = 60
 # https://docs.celeryq.dev/en/stable/userguide/configuration.html#beat-scheduler
 CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
+CELERY_BEAT_SCHEDULE = {
+    "cleanup-expired-demo-data": {
+        "task": "rrss_creatos_analyzer.apps.core.tasks.cleanup_expired_demo_data_task",
+        "schedule": crontab(hour=3, minute=30),
+    },
+}
 # https://docs.celeryq.dev/en/stable/userguide/configuration.html#worker-send-task-events
 CELERY_WORKER_SEND_TASK_EVENTS = True
 # https://docs.celeryq.dev/en/stable/userguide/configuration.html#std-setting-task_send_sent_event
 CELERY_TASK_SEND_SENT_EVENT = True
 # https://docs.celeryq.dev/en/stable/userguide/configuration.html#worker-hijack-root-logger
 CELERY_WORKER_HIJACK_ROOT_LOGGER = False
+
 # django-allauth
 # ------------------------------------------------------------------------------
 ACCOUNT_ALLOW_REGISTRATION = env.bool("DJANGO_ACCOUNT_ALLOW_REGISTRATION", True)
 # https://docs.allauth.org/en/latest/account/configuration.html
-ACCOUNT_LOGIN_METHODS = {"username"}
+ACCOUNT_LOGIN_METHODS = {"username", "email"}
 # https://docs.allauth.org/en/latest/account/configuration.html
 ACCOUNT_SIGNUP_FIELDS = ["email*", "username*", "password1*", "password2*"]
 # https://docs.allauth.org/en/latest/account/configuration.html
-ACCOUNT_EMAIL_VERIFICATION = "none"
+ACCOUNT_EMAIL_VERIFICATION = env.str(
+    "DJANGO_ACCOUNT_EMAIL_VERIFICATION",
+    default="none",
+)
 # https://docs.allauth.org/en/latest/account/configuration.html
 ACCOUNT_ADAPTER = "rrss_creatos_analyzer.apps.users.adapters.AccountAdapter"
 # https://docs.allauth.org/en/latest/account/forms.html
-ACCOUNT_FORMS = {"signup": "rrss_creatos_analyzer.apps.users.forms.UserSignupForm"}
+ACCOUNT_FORMS = {
+    "signup": "rrss_creatos_analyzer.apps.users.forms.UserSignupForm",
+    "reset_password": "rrss_creatos_analyzer.apps.users.forms.UserResetPasswordForm",
+}
+ACCOUNT_RATE_LIMITS = {
+    "login_failed": "5/5m",
+    "signup": "5/1h",
+    "reset_password": "5/1h",
+    "confirm_email": "5/1h",
+}
 # https://docs.allauth.org/en/latest/socialaccount/configuration.html
 SOCIALACCOUNT_ADAPTER = "rrss_creatos_analyzer.apps.users.adapters.SocialAccountAdapter"
 # https://docs.allauth.org/en/latest/socialaccount/configuration.html
 SOCIALACCOUNT_FORMS = {
     "signup": "rrss_creatos_analyzer.apps.users.forms.UserSocialSignupForm",
 }
+
 # django-compressor
 # ------------------------------------------------------------------------------
 # https://django-compressor.readthedocs.io/en/latest/quickstart/#installation
 INSTALLED_APPS += ["compressor"]
 STATICFILES_FINDERS += ["compressor.finders.CompressorFinder"]
+
 # django-rest-framework
 # -------------------------------------------------------------------------------
 # django-rest-framework - https://www.django-rest-framework.org/api-guide/settings/
@@ -404,6 +445,14 @@ REST_FRAMEWORK = {
     ),
     "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    "DEFAULT_THROTTLE_CLASSES": (
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",
+    ),
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": "30/min",
+        "user": "120/min",
+    },
 }
 
 # django-cors-headers - https://github.com/adamchainz/django-cors-headers#setup
@@ -412,8 +461,8 @@ CORS_URLS_REGEX = r"^/api/.*$"
 # By Default swagger ui is available only to admin user(s). You can change permission classes to change that
 # See more configuration options at https://drf-spectacular.readthedocs.io/en/latest/settings.html#settings
 SPECTACULAR_SETTINGS = {
-    "TITLE": "RRSS Creatos Analyzer API",
-    "DESCRIPTION": "Documentation of API endpoints of RRSS Creatos Analyzer",
+    "TITLE": "RRSS Creators Analyzer API",
+    "DESCRIPTION": "Documentation of API endpoints of RRSS Creators Analyzer",
     "VERSION": "1.0.0",
     "SERVE_PERMISSIONS": ["rest_framework.permissions.IsAdminUser"],
     "SCHEMA_PATH_PREFIX": "/api/",
