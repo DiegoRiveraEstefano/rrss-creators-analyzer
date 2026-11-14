@@ -5,7 +5,7 @@ trigger: always_on
 # RRSS Creators Analyzer: Changelog Maintenance
 
 1. **Keep a Changelog**:
-   - `CHANGELOG.md` follows the [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) standard.
+   - `CHANGELOG.md` follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 2. **Categories**:
    - `Added`: New features, endpoints, models, tables, filters, or Web Components.
    - `Changed`: Changes in existing functionality or architectural adaptations.

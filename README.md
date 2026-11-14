@@ -6,217 +6,180 @@
 [![Django 6.0](https://img.shields.io/badge/django-6.0-092E20.svg)](https://www.djangoproject.com/)
 [![Bootstrap 5](https://img.shields.io/badge/bootstrap-5.x-7952B3.svg)](https://getbootstrap.com/)
 
-**RRSS Creators Analyzer** es una plataforma integral desarrollada en **Django 6.0** diseñada para el seguimiento, auditoría, analítica y gestión de creadores de contenido y streamers (`Twitch`, `YouTube`, `Kick`, `TikTok`) pertenecientes a una compañía o agencia.
+**RRSS Creators Analyzer** is a **Django 6.0** web application for talent management, operational auditing, financial settlements, and multi-platform analytics (`Twitch`, `YouTube`, `Kick`, `TikTok`, `Instagram`, `X`) for a single content creator agency.
 
 > [!IMPORTANT]
-> **Arquitectura Single-Tenant / Single-Company**: A diferencia del esquema legado (ver [`old-migrations/`](file:///home/diego/Proyectos/rrss-creators-analyzer/old-migrations)), este sistema está diseñado específicamente para operar como una plataforma **single-tenant** para una única compañía. El entorno de **producción** está configurado para operar con **PostgreSQL** (con driver nativo `psycopg` 3) y **Redis** (para caché distribuida con `django-redis` y broker/backend de Celery), mientras que en desarrollo y pruebas locales soporta de forma transparente **SQLite** (en modo WAL optimizado) y **DiskCache** para máxima agilidad operativa.
+> **Single-Tenant / Single-Company Architecture**: Unlike the legacy SQL reference in [`old-migrations/`](file:///home/diego/Proyectos/rrss-creators-analyzer/old-migrations), this platform operates for a single agency. Production uses **PostgreSQL 16+** (`psycopg` 3) and **Redis 7+** (`django-redis` + Celery), while local development and tests run out of the box on **SQLite 3** (WAL mode) and **DiskCache** / `LocMemCache`.
 
 ---
 
-## Tabla de Contenidos
+## Table of Contents
 
-1. [Características Principales](#características-principales)
-2. [Stack Tecnológico](#stack-tecnológico)
-3. [Documentación del Proyecto](#documentación-del-proyecto)
-4. [Requisitos e Instalación Local](#requisitos-e-instalación-local)
-5. [Despliegue con Docker Compose (Producción)](#despliegue-con-docker-compose-producción)
-6. [Comandos de Desarrollo y Calidad](#comandos-de-desarrollo-y-calidad)
-7. [Estructura del Proyecto](#estructura-del-proyecto)
-8. [Licencia](#licencia)
-
----
-
-## Características Principales
-
-- **Directorio de Creadores y Canales (`creators`)**:
-  - Gestión centralizada del roster de creadores (`active`, `inactive`, `suspended`) y vinculación opcional con cuentas de usuario del sistema.
-  - Seguimiento multi-plataforma (`Twitch`, `YouTube`, `Kick`, `TikTok`) con métricas de seguidores, suscriptores y estado en vivo.
-- **Asistentes en Múltiples Pasos (`django-formtools`)**:
-  - Incorporación guiada de talentos (`creators` / `contracts`): alta de perfil, vinculación de canales por plataforma y configuración de términos contractuales con reparto de ingresos (*revenue split*).
-  - Flujos secuenciales para la configuración de campañas de patrocinio (`campaigns`), cierre de liquidaciones contables mensuales (`payouts`) y asistentes de ingesta masiva con mapeo interactivo de columnas (`imports`).
-- **Analítica de Sesiones de Streaming (`streams`)**:
-  - Registro detallado de transmisiones en vivo: duración, horas transmitidas, media de espectadores concurrentes (`avg_ccv`), pico de espectadores (`peak_viewers`), interacción en chat y nuevos seguidores.
-  - Desglose financiero por sesión: ingresos por publicidad (`ad_revenue`), suscripciones (`subs_revenue`), donaciones (`donations_revenue`), ingresos totales e ingresos por hora (`earnings_per_hour`).
-- **Gestión de Activos de Video y Publicaciones (`videos`)**:
-  - Arquitectura en 3 entidades adaptada del sistema legado:
-    1. **Videos (`Video`)**: Activo digital maestro, costos de producción, categoría, estado editorial (`draft`, `editing`, `ready`, `published`, `archived`) y etiquetas con `django-taggit`.
-    2. **Publicaciones (`VideoPublication`)**: Distribución por plataforma (`standard`, `short/reel`, `vod`, `clip`, `teaser`) con métricas de vistas, likes, comentarios, compartidos, horas de visualización, `engagement_rate`, `estimated_revenue`, `net_profit`, `ROI` y `RPM`.
-    3. **Relaciones (`VideoRelation`)**: Trazabilidad entre videos y sesiones de streaming en vivo (`derived_from_live`, `continuation`, `sequel`, `clip`, `spin_off`).
-- **Sistema de Alertas y Sanciones (`alerts`)**:
-  - Monitoreo de incidencias de canal: strikes de DMCA (`dmca_strike`), violaciones de términos de servicio (`tos_violation`), caídas inusuales de tráfico (`unusual_drop`) o tráfico sospechoso (`suspicious_traffic`).
-  - Flujo de severidad (`info`, `warning`, `critical`) y estados de resolución (`active`, `resolved`, `appealed`).
-- **Importación Masiva y Auditoría (`imports`)**:
-  - Procesamiento y validación de lotes de datos (`ImportBatch`) mediante `django-import-export`.
-  - Trazabilidad completa de cambios en modelos críticos mediante `django-simple-history`.
-- **Dashboards y Reportes Consolidados (`analytics`)**:
-  - Rankings globales de creadores (por ingresos combinados, CCV y horas transmitidas), resúmenes financieros mensuales y rendimiento comparativo por categoría/plataforma utilizando el ORM de Django y caché (`Redis` en producción / `DiskCache` en local).
+1. [Core Capabilities](#core-capabilities)
+2. [Tech Stack](#tech-stack)
+3. [Quick Start (Local & Demo Mode)](#quick-start-local--demo-mode)
+4. [Docker Compose Deployment (Production & Demo)](#docker-compose-deployment-production--demo)
+5. [Demo Service, Retention & Security Controls](#demo-service-retention--security-controls)
+6. [Development & Quality Commands](#development--quality-commands)
+7. [Documentation](#documentation)
+8. [Project Structure](#project-structure)
+9. [License](#license)
 
 ---
 
-## Stack Tecnológico
+## Core Capabilities
 
-### Backend y Persistencia
-- **Lenguaje**: Python `3.14.x` (gestionado con `uv`).
-- **Framework Web**: Django `6.0.9` (Server-Side Rendering HTML-first, potenciado al máximo con sus capacidades nativas).
-- **Base de Datos**:
-  - **Producción**: **PostgreSQL 16+** con `psycopg` 3 (`django.db.backends.postgresql`), transacciones atómicas (`ATOMIC_REQUESTS=True`) y persistencia en volumen `postgres_data`.
-  - **Desarrollo y Testing**: **SQLite 3** (`PRAGMA journal_mode=WAL;`, `synchronous=NORMAL;`, `busy_timeout=5000;`, `foreign_keys=ON;`) o PostgreSQL.
-- **Caché y Tareas Asíncronas**:
-  - **Producción**: **Redis 7+** mediante `django-redis` y `redis-py` para caché de baja latencia (`CACHES["default"]`), gestión de sesiones y broker/result backend de **Celery** y **Celery Beat**.
-  - **Desarrollo y Testing**: `diskcache` (`diskcache.DjangoCache`) y memoria local (`LocMemCache`) para desarrollo contenido.
-- **Autenticación y Seguridad**: `django-allauth[mfa]` con soporte MFA, hash de contraseñas con `Argon2`, control de acceso basado en roles (`Groups` y `Permissions` nativos de Django: `company_admin`, `manager`, `analyst`, `creator`).
-
-### Librerías Core del Ecosistema Django (Uso Prioritario)
-- **Tablas de Datos**: `django-tables2` para listados paginados, ordenamiento multi-columna y exportación.
-- **Filtrado**: `django-filter` para búsquedas declarativas y filtros combinados en vistas y APIs.
-- **Formularios y Asistentes Multi-Paso**: `django-crispy-forms` + `crispy-bootstrap5` para layouts estructurados, `django-formtools` (`SessionWizardView`) para flujos secuenciales guiados (onboarding, contratos, campañas, liquidaciones) y `django-widget-tweaks` para ajustes granulares en plantillas HTML.
-- **Autocompletado y Etiquetas**: `django-autocomplete-light` (DAL) para selectores relacionales y `django-taggit` para categorización.
-- **Importación/Exportación e Historial**: `django-import-export` y `django-simple-history`.
-
-### Frontend (Sin Frameworks JS Pesados)
-- **HTML**: HTML5 estrictamente semántico (`<main>`, `<section>`, `<article>`, `<nav>`, `<aside>`, `<header>`, `<figure>`).
-- **Estilos**: **Bootstrap 5** (`crispy-bootstrap5`) combinado con variables CSS nativas para temas e indicadores de plataforma.
-- **Interactividad**: **JavaScript Vanilla (ES6+)** para lógica ligera y **Web Components nativos (Custom Elements)** para widgets interactivos complejos (gráficos, selectores de rangos, previsualizadores).
+- **Creator Roster & Channels (`creators`, `contracts`)**: Centralized talent directory, multi-platform channel tracking, daily audience snapshots, confidential KYC profiles, and contractual revenue splits/quotas.
+- **Schedule & Compliance Tracking (`schedules`)**: RFC 5545 `RRULE` recurring broadcast schedules, calendar slot generation, automatic reconciliation against live streams, exception approvals, and monthly compliance summaries.
+- **Live Streaming Analytics (`streams`)**: Session duration (`hours_streamed` generated field), `avg_ccv`, `peak_viewers`, chat engagement, category segments, and itemized revenue (`ad_revenue`, `subs_revenue`, `donations_revenue`, `earnings_per_hour`).
+- **Video & Post-Production Pipeline (`videos`, `editors`)**: Three-entity media model (`Video`, `VideoPublication`, `VideoRelation`) with `django-taggit`, editorial workflow, editor assignments, versioned cut revisions (`TaskRevision`), production cost allocation, net profit, ROI, and RPM.
+- **Sponsorships & Financial Settlements (`campaigns`, `payouts`)**: Brand campaign budgets, deliverable tracking with proof URLs, and monthly creator payouts with dual approval and recoupment handling.
+- **Channel Health & Alerts (`alerts`)**: DMCA strike tracking, ToS warnings, unusual CCV drop detection, and SLA resolution workflows.
+- **Multi-Step Wizards (`django-formtools`)**: Guided `SessionWizardView` flows for creator onboarding, campaign setup, payout closing, and assisted CSV/XLSX import mapping.
+- **Bulk Ingestion, Exports & Dashboards (`imports`, `exports`, `analytics`)**: `django-import-export` pipelines, cached rankings (`Window`/`DenseRank`), and consolidated agency KPIs.
+- **Governance & Operations (`users`, `permissions`, `members`, `audit`, `logs`, `monitor`, `backups`)**: Native Django RBAC (`Group` / `Permission`), `django-simple-history`, `django-auditlog`, health diagnostics, and backup management.
 
 ---
 
-## Documentación del Proyecto
+## Tech Stack
 
-Toda la normativa técnica, arquitectónica y de diseño del proyecto se encuentra documentada en los siguientes archivos en la raíz del repositorio:
-
-- [`DOCS.md`](file:///home/diego/Proyectos/rrss-creators-analyzer/DOCS.md): Documentación general de la arquitectura, modelo de dominio (migración desde [`old-migrations/`](file:///home/diego/Proyectos/rrss-creators-analyzer/old-migrations) a modelos de Django), asistentes multi-paso (`django-formtools`), configuración de bases de datos (PostgreSQL/SQLite) y caché (Redis/DiskCache), y flujos de negocio.
-- [`GUIDELINES.md`](file:///home/diego/Proyectos/rrss-creators-analyzer/GUIDELINES.md): Reglas arquitectónicas del proyecto (Capas `Models -> Selectors -> Services -> Views`, uso obligatorio de `django-tables2`, `django-filter`, `django-crispy-forms`, `django-formtools` y `django-widget-tweaks`, política estricta de Signals y TDD).
-- [`STYLE_GUIDE.md`](file:///home/diego/Proyectos/rrss-creators-analyzer/STYLE_GUIDE.md): Guía de estilo de código para Python (Ruff, Mypy), plantillas Django (`djLint`), HTML5 semántico, Bootstrap 5, asistentes multi-paso, JS Vanilla y Web Components.
-- [`DESING.md`](file:///home/diego/Proyectos/rrss-creators-analyzer/DESING.md): Guía de diseño UI/UX, paleta de colores por plataforma (`Twitch`, `YouTube`, `Kick`, `TikTok`), componentes de dashboards, steppers/asistentes multi-paso, tablas analíticas y accesibilidad.
-- [`SECURITY.md`](file:///home/diego/Proyectos/rrss-creators-analyzer/SECURITY.md): Política de seguridad, matriz de permisos por rol (RBAC en Django), protección de datos en PostgreSQL/Redis/SQLite, y reporte de vulnerabilidades.
-- [`CONTRIBUTING.md`](file:///home/diego/Proyectos/rrss-creators-analyzer/CONTRIBUTING.md): Flujo de trabajo con Git, estándares de Conventional Commits, requisitos de pruebas con `pytest` y lista de verificación para Pull Requests.
-- [`AGENTS.md`](file:///home/diego/Proyectos/rrss-creators-analyzer/AGENTS.md): Instrucciones operativas y contexto rápido para agentes de IA y asistentes de código que trabajen en este repositorio.
-- [`CHANGELOG.md`](file:///home/diego/Proyectos/rrss-creators-analyzer/CHANGELOG.md): Registro histórico de cambios siguiendo el estándar *Keep a Changelog*.
+- **Backend**: Python `3.14.x` (`uv`), Django `6.0.9`, Django REST Framework, `drf-spectacular`, Celery + `django-celery-beat`.
+- **Persistence & Cache**: PostgreSQL 16+ / Redis 7+ (production), SQLite 3 WAL / `diskcache` (local & tests).
+- **Auth & Security**: `django-allauth[mfa]`, `Argon2PasswordHasher`, `django-simple-captcha`, `django-ratelimit`, DRF throttling, native Django Groups/Permissions.
+- **Django UI Ecosystem**: `django-tables2`, `django-filter`, `django-crispy-forms` (`crispy-bootstrap5`), `django-formtools`, `django-widget-tweaks`, `django-autocomplete-light`.
+- **Frontend**: Semantic HTML5, Bootstrap 5, Vanilla ES6+ JavaScript, and native Web Components.
 
 ---
 
-## Requisitos e Instalación Local
+## Quick Start (Local & Demo Mode)
 
-### Prerrequisitos
-- **Python**: `3.14.x`
-- **Gestor de paquetes**: [`uv`](https://docs.astral.sh/uv/)
+### Prerequisites
+- Python `3.14.x`
+- [`uv`](https://docs.astral.sh/uv/)
 
-### Pasos de Configuración
+### Setup
 
-1. **Clonar el repositorio e instalar dependencias**:
+1. **Install dependencies**:
    ```bash
    uv sync --all-groups
    ```
 
-2. **Configurar variables de entorno**:
-   Crea un archivo `.env` en la raíz del proyecto (o utiliza los archivos base en `.envs/`):
+2. **Configure environment variables**:
+   Create a `.env` file in the repository root (see `.env.example`):
    ```ini
    DJANGO_DEBUG=True
    DJANGO_SECRET_KEY=dev-secret-key-change-in-production
    DJANGO_READ_DOT_ENV_FILE=True
-   DATABASE_URL=sqlite:///db.sqlite3
-   REDIS_URL=redis://localhost:6379/0
+   DEMO_MODE=True
    ```
 
-3. **Ejecutar migraciones de base de datos**:
+3. **Run migrations and seed demo data**:
    ```bash
    uv run python manage.py migrate
+   uv run python manage.py seed_demo_data
    ```
 
-4. **Crear un superusuario**:
-   ```bash
-   uv run python manage.py createsuperuser
-   ```
-
-5. **Iniciar el servidor de desarrollo**:
+4. **Start the development server**:
    ```bash
    uv run python manage.py runserver
    ```
 
 ---
 
-## Despliegue con Docker Compose (Producción)
+## Docker Compose Deployment (Production & Demo)
 
-El stack de producción está contenerizado y orquestado mediante [`docker-compose.yml`](file:///home/diego/Proyectos/rrss-creators-analyzer/docker-compose.yml), el cual aprovisiona:
-
-1. **`postgres`**: PostgreSQL 16 Alpine con healthcheck (`pg_isready`) y volumen persistente `postgres_data`.
-2. **`redis`**: Redis 7 Alpine con healthcheck (`redis-cli ping`) y volumen persistente `redis_data`.
-3. **`web`**: Aplicación Django 6 servida mediante Gunicorn y Uvicorn workers (`config.asgi:application`), con migraciones automáticas y recolección de estáticos en el arranque.
-4. **`celery_worker`**: Worker de Celery para procesamiento de tareas asíncronas en segundo plano.
-5. **`celery_beat`**: Planificador de tareas periódicas (`DatabaseScheduler`).
-
-### Comandos de Despliegue
+[`docker-compose.yml`](file:///home/diego/Proyectos/rrss-creators-analyzer/docker-compose.yml) provisions `postgres:16-alpine`, `redis:7-alpine`, `web` (Gunicorn + Uvicorn ASGI workers), `celery_worker`, and `celery_beat`.
 
 ```bash
-# 1. Combinar variables de entorno de producción (o definir .env)
+# 1. Generate .env from .envs/.production/ (update placeholders first)
 uv run python merge_production_dotenvs_in_dotenv.py
 
-# 2. Construir e iniciar todos los servicios en segundo plano
+# 2. Build and start services
 docker compose up -d --build
 
-# 3. Verificar estado de los servicios y healthchecks
-docker compose ps
+# 3. Optional: seed demo data inside the running web container
+docker compose exec web python manage.py seed_demo_data
 
-# 4. Ver logs en tiempo real
+# 4. Check container health and logs
+docker compose ps
 docker compose logs -f web
 ```
 
 ---
 
-## Comandos de Desarrollo y Calidad
+## Demo Service, Retention & Security Controls
 
-### Pruebas Automatizadas y Cobertura (`pytest`)
+When `DEMO_MODE=True` is enabled (intended for live portfolio previews):
+
+- **Quick Demo Login**: One-click `POST` login buttons on the home and login pages allow instant testing across predefined roles (`Manager`, `Analyst`, `Finance`, `Creator`) without entering credentials.
+- **Open Self-Registration**: Visitors can create their own accounts via `/accounts/signup/`, optionally choose a demo role, and are immediately assigned permissions so the dashboard is usable without `403` errors.
+- **7-Day Automatic Data Retention**: Seeded baseline records are tracked in `DemoBaselineRecord` and preserved. User-created records and self-registered accounts older than `DEMO_DATA_RETENTION_DAYS` (default `7`) are purged daily by Celery Beat (`cleanup_expired_demo_data`) or manually via:
+  ```bash
+  uv run python manage.py cleanup_demo_data --days 7 --dry-run
+  ```
+- **Abuse Protection**:
+  - `django-simple-captcha` on signup (and password reset) when `CAPTCHA_ENABLED=True`.
+  - Rate limiting via `django-allauth` (`ACCOUNT_RATE_LIMITS`), `django-ratelimit` on sensitive web actions/uploads, and DRF `AnonRateThrottle` / `UserRateThrottle`.
+  - Shared demo baseline accounts cannot change passwords, modify emails, or delete themselves from the UI.
+
+---
+
+## Development & Quality Commands
+
 ```bash
-# Ejecutar toda la suite de tests
+# Run test suite
 uv run pytest
 
-# Ejecutar con reporte de cobertura
-uv run coverage run -m pytest
-uv run coverage html
-```
+# Coverage report
+uv run coverage run -m pytest && uv run coverage html
 
-### Verificación de Tipos y Linting
-```bash
-# Chequeo estático de tipos con Mypy
+# Static type checking
 uv run mypy rrss_creatos_analyzer
 
-# Linting y formato de Python con Ruff
+# Python linting and formatting
 uv run ruff check .
 uv run ruff format --check .
 
-# Linting y formato de plantillas Django/HTML5 con djLint
+# Django template linting and formatting
 uv run djlint rrss_creatos_analyzer/templates --lint
 uv run djlint rrss_creatos_analyzer/templates --reformat
 ```
 
 ---
 
-## Estructura del Proyecto
+## Documentation
+
+- [`DOCS.md`](file:///home/diego/Proyectos/rrss-creators-analyzer/DOCS.md): System architecture, domain model, legacy migration mapping, and multi-step wizard flows.
+- [`GUIDELINES.md`](file:///home/diego/Proyectos/rrss-creators-analyzer/GUIDELINES.md): Engineering rules (`Models -> Selectors -> Services -> Views`), Django ecosystem usage, signal policy, and TDD standards.
+- [`STYLE_GUIDE.md`](file:///home/diego/Proyectos/rrss-creators-analyzer/STYLE_GUIDE.md): Coding conventions for Python, `djLint` HTML5 templates, Bootstrap 5, and Web Components.
+- [`DESIGN.md`](file:///home/diego/Proyectos/rrss-creators-analyzer/DESIGN.md): UI/UX tokens, platform color system, analytical table layout, steppers, and WCAG 2.1 AA accessibility.
+- [`SECURITY.md`](file:///home/diego/Proyectos/rrss-creators-analyzer/SECURITY.md): Authentication, RBAC permission matrix, IDOR protection, rate limits, CAPTCHA, and vulnerability reporting.
+- [`CONTRIBUTING.md`](file:///home/diego/Proyectos/rrss-creators-analyzer/CONTRIBUTING.md): Git branching, Conventional Commits, and PR verification checklist.
+- [`AGENTS.md`](file:///home/diego/Proyectos/rrss-creators-analyzer/AGENTS.md): Operational reference for AI coding agents.
+- [`CHANGELOG.md`](file:///home/diego/Proyectos/rrss-creators-analyzer/CHANGELOG.md): Version history following Keep a Changelog.
+- [`docs/requirements/`](file:///home/diego/Proyectos/rrss-creators-analyzer/docs/requirements): Module-by-module functional and business rule specifications.
+
+---
+
+## Project Structure
 
 ```text
 rrss-creators-analyzer/
-├── compose/                        # Scripts de arranque y entrypoints de Docker (web, celery)
-├── config/                         # Configuración global de Django (settings, urls, wsgi/asgi, celery)
-│   └── settings/                   # Configuraciones modulares (base, local, production, test)
-├── docs/                           # Documentación técnica, requerimientos y esquemas SQL
-├── old-migrations/                 # Referencia histórica del esquema SQL anterior (PostgreSQL/Supabase)
-├── rrss_creatos_analyzer/          # Paquete principal de la aplicación
-│   ├── contrib/                    # Extensiones de contrib (sites)
-│   ├── core/                       # Mixins base (BaseModel, BaseService, BaseSelector, utilidades de caché)
-│   ├── users/                      # Gestión de usuarios, perfiles y roles de la compañía
-│   ├── creators/                   # Directorio de streamers/creadores y canales por plataforma
-│   ├── streams/                    # Sesiones de streaming en vivo y métricas de audiencia/ingresos
-│   ├── videos/                     # Activos de video, publicaciones por plataforma y relaciones
-│   ├── alerts/                     # Alertas de canal, strikes DMCA/TOS e incidencias
-│   ├── imports/                    # Lotes de importación masiva (CSV/XLSX) y auditoría
-│   ├── analytics/                  # Dashboards, rankings y reportes agregados
-│   ├── static/                     # Archivos estáticos (CSS Bootstrap 5, JS Vanilla y Web Components)
-│   └── templates/                  # Plantillas HTML5 semánticas (SSR)
-└── tests/                          # Pruebas de integración transversales
+├── compose/                        # Docker entrypoints and start scripts (web, celery)
+├── config/                         # Django configuration (settings, urls, asgi/wsgi, celery)
+│   └── settings/                   # Modular settings (base, local, production, test)
+├── docs/                           # Sphinx docs, SQL schema reference, and module requirements
+├── old-migrations/                 # Legacy PostgreSQL/Supabase SQL reference
+├── rrss_creatos_analyzer/          # Main Django project package
+│   ├── apps/                       # 20 modular domain and operational Django apps
+│   ├── contrib/                    # Contrib extensions (sites)
+│   ├── static/                     # CSS (Bootstrap 5 tokens), Vanilla JS, Web Components
+│   └── templates/                  # Semantic HTML5 templates (SSR)
+└── tests/                          # Cross-cutting integration tests
 ```
 
 ---
 
-## Licencia
+## License
 
-Distribuido bajo la licencia **GPLv3**. Consulta el archivo [`LICENSE`](file:///home/diego/Proyectos/rrss-creators-analyzer/LICENSE) y [`COPYING`](file:///home/diego/Proyectos/rrss-creators-analyzer/COPYING) para más detalles.
+Licensed under **GPLv3**. See [`LICENSE`](file:///home/diego/Proyectos/rrss-creators-analyzer/LICENSE) and [`COPYING`](file:///home/diego/Proyectos/rrss-creators-analyzer/COPYING).
