@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% load i18n %}
+
+{% block title %}
+  {% translate "Too Many Requests (429)" %} | RRSS Creators Analyzer
+{% endblock title %}
+{% block content %}
+  <main id="main-content" class="py-5">
+    <div class="row justify-content-center">
+      <div class="col-md-8 col-lg-6">
+        <article class="card border-0 shadow-sm text-center p-4">
+          <div class="card-body">
+            <span class="badge text-bg-warning mb-2">HTTP 429</span>
+            <h1 class="h3 fw-bold mb-3">{% translate "Too Many Requests" %}</h1>
+            <p class="text-body-secondary mb-4">
+              {% translate "Rate limit exceeded for this action. Please wait a moment before trying again." %}
+            </p>
+            <a href="{% url 'home' %}" class="btn btn-primary">{% translate "Back to Home" %}</a>
+          </div>
+        </article>
+      </div>
+    </div>
+  </main>
+{% endblock content %}

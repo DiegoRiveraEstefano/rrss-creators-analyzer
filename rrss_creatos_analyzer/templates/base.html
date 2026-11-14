@@ -257,6 +257,29 @@
               </ul>
               <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
                 {% if request.user.is_authenticated %}
+                  {% if DEMO_MODE %}
+                    <li class="nav-item dropdown">
+                      <a class="nav-link dropdown-toggle text-warning"
+                         href="#"
+                         id="navDemoRoleDropdown"
+                         role="button"
+                         data-bs-toggle="dropdown"
+                         aria-expanded="false">{% translate "Switch Demo Role" %}</a>
+                      <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navDemoRoleDropdown">
+                        {% for item in DEMO_QUICK_ROLES %}
+                          <li>
+                            <form method="post" action="{% url 'demo_login' %}">
+                              {% csrf_token %}
+                              <input type="hidden" name="role" value="{{ item.role }}" />
+                              <button type="submit" class="dropdown-item">
+                                {{ item.label }} <span class="text-body-secondary small">({{ item.username }})</span>
+                              </button>
+                            </form>
+                          </li>
+                        {% endfor %}
+                      </ul>
+                    </li>
+                  {% endif %}
                   <li class="nav-item">
                     <a class="nav-link"
                        href="{% url 'users:detail' request.user.username %}">{% translate "My Profile" %}</a>
@@ -280,6 +303,21 @@
         </nav>
       </header>
       <div class="container">
+        {% if DEMO_MODE %}
+          <aside class="alert alert-info border-0 shadow-sm d-flex flex-wrap justify-content-between align-items-center gap-2 py-2 px-3 mb-3"
+                 role="note"
+                 aria-label="Demo environment notice">
+            <div class="small">
+              <span class="badge text-bg-dark me-2">DEMO MODE</span>
+              {% blocktranslate with days=DEMO_DATA_RETENTION_DAYS %}User-created records and self-registered accounts are automatically purged after {{ days }} days. Baseline demo data is preserved.{% endblocktranslate %}
+            </div>
+            {% if not request.user.is_authenticated and ACCOUNT_ALLOW_REGISTRATION %}
+              <a href="{% url 'account_signup' %}" class="btn btn-sm btn-outline-dark">
+                {% translate "Create Demo Account" %}
+              </a>
+            {% endif %}
+          </aside>
+        {% endif %}
         {% if messages %}
           {% for message in messages %}
             <div class="alert alert-dismissible {% if message.tags %}alert-{{ message.tags }}{% endif %}"
