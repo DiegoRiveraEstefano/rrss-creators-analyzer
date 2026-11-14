@@ -2,7 +2,7 @@
 # ------------------------------------------------------------------------------
 POSTGRES_HOST=postgres
 POSTGRES_PORT=5432
-POSTGRES_DB=rrss_creatos_analyzer
-POSTGRES_USER=debug
-POSTGRES_PASSWORD=debug
-DATABASE_URL=postgres://debug:debug@postgres:5432/rrss_creatos_analyzer
+POSTGRES_DB=rrss_creators_analyzer
+POSTGRES_USER=change-me-db-user
+POSTGRES_PASSWORD=change-me-db-password
+DATABASE_URL=postgres://change-me-db-user:change-me-db-password@postgres:5432/rrss_creators_analyzer
